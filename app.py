@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-#import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 # Streamlit page config
 st.set_page_config(page_title="Meta Reach Planner Analyzer", layout="centered")
@@ -40,7 +40,7 @@ if uploaded_file:
         max_reach = max_reach_row['Reach at 1+ Frequency']
         max_budget = max_reach_row['Budget']
 
-        # Optimum Reach (based on where curve flattens - you can refine this logic)
+        # Optimum Reach (based on curve flattening)
         optimum_row = df.tail(3).iloc[0]
         optimum_reach = optimum_row['Reach at 1+ Frequency']
         optimum_budget = optimum_row['Budget']
@@ -64,22 +64,47 @@ if uploaded_file:
         })
         st.dataframe(summary, use_container_width=True)
 
-        # Plot
+        # Plotly chart
         st.subheader("📈 Reach Curve")
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(df['Budget'], df['Reach at 1+ Frequency'], marker='o', label='Reach Curve')
-        ax.axvline(x=max_budget, color='red', linestyle='--', label=f'Max Reach\nLKR {max_budget:,.0f}')
-        ax.axvline(x=optimum_budget, color='green', linestyle='--', label=f'Optimum Reach\nLKR {optimum_budget:,.0f}')
-        ax.axvline(x=custom_budget, color='purple', linestyle='--', label=f'{custom_percent}% Reach\nLKR {custom_budget:,.0f}')
-        ax.scatter([max_budget, optimum_budget, custom_budget],
-                   [max_reach, optimum_reach, custom_reach],
-                   color=['red', 'green', 'purple'], s=100, zorder=5)
-        ax.set_xlabel("Budget (LKR)")
-        ax.set_ylabel("Reach at 1+ Frequency")
-        ax.set_title("Reach vs Budget")
-        ax.legend()
-        ax.grid(True)
-        st.pyplot(fig)
+        fig = go.Figure()
+
+        # Line plot
+        fig.add_trace(go.Scatter(
+            x=df['Budget'],
+            y=df['Reach at 1+ Frequency'],
+            mode='lines+markers',
+            name='Reach Curve',
+            line=dict(color='royalblue')
+        ))
+
+        # Add vertical markers
+        fig.add_vline(x=max_budget, line=dict(color='red', dash='dash'),
+                      annotation_text=f'Max Reach\nLKR {max_budget:,.0f}', annotation_position="top right")
+        fig.add_vline(x=optimum_budget, line=dict(color='green', dash='dash'),
+                      annotation_text=f'Optimum Reach\nLKR {optimum_budget:,.0f}', annotation_position="top left")
+        fig.add_vline(x=custom_budget, line=dict(color='purple', dash='dash'),
+                      annotation_text=f'{custom_percent}% Reach\nLKR {custom_budget:,.0f}', annotation_position="bottom left")
+
+        # Add dots at key points
+        fig.add_trace(go.Scatter(
+            x=[max_budget, optimum_budget, custom_budget],
+            y=[max_reach, optimum_reach, custom_reach],
+            mode='markers',
+            marker=dict(color=['red', 'green', 'purple'], size=10),
+            name='Key Points'
+        ))
+
+        # Layout
+        fig.update_layout(
+            xaxis_title="Budget (LKR)",
+            yaxis_title="Reach at 1+ Frequency",
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(color='black'),
+            height=500
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
         st.error(f"❌ Error processing file: {e}")
