@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# Page configuration
+# Streamlit config
 st.set_page_config(page_title="Meta Reach Planner Analyzer", layout="centered")
 
-# Custom dark theme styling
+# Custom dark styling
 st.markdown("""
     <style>
     .stApp {
@@ -34,7 +34,7 @@ uploaded_file = st.file_uploader("Upload Reach Planner CSV or Excel File", type=
 
 if uploaded_file:
     try:
-        # Load file
+        # Load the uploaded file
         if uploaded_file.name.endswith('.csv'):
             df_raw = pd.read_csv(uploaded_file)
         elif uploaded_file.name.endswith('.xlsx'):
@@ -45,40 +45,43 @@ if uploaded_file:
             st.error("❌ Unsupported file format.")
             st.stop()
 
-        # Extract frequency columns
+        # Extract & map frequency columns
         frequency_columns = [col for col in df_raw.columns if "Reach at " in col and "+ frequency" in col]
+        frequency_map = {f"{i+1}+": col for i, col in enumerate(frequency_columns)}
 
-        # Sidebar: frequency selector
-        selected_column = st.sidebar.selectbox("📶 Select Frequency Level", frequency_columns)
+        # Sidebar dropdown
+        st.sidebar.header("📶 Frequency Filter")
+        selected_display = st.sidebar.selectbox("Select Reach Frequency Level", list(frequency_map.keys()))
+        selected_column = frequency_map[selected_display]
 
-        # Extract budget + selected frequency
+        # Prepare dataframe
         df = df_raw[['Budget', selected_column]].copy()
         df = df.rename(columns={selected_column: 'Reach'})
         df = df.sort_values('Budget').reset_index(drop=True)
 
-        # Compute metrics
+        # Compute incremental metrics
         df['Previous Reach'] = df['Reach'].shift(1)
         df['Incremental Reach'] = df['Reach'] - df['Previous Reach']
         df['Previous Budget'] = df['Budget'].shift(1)
         df['Incremental Spend'] = df['Budget'] - df['Previous Budget']
         df['Cost per 1000 Incremental Reach'] = (df['Incremental Spend'] / df['Incremental Reach']) * 1000
 
-        # Max reach
+        # Max Reach
         max_row = df.loc[df['Reach'].idxmax()]
         max_reach = max_row['Reach']
         max_budget = max_row['Budget']
 
-        # Optimum reach (basic tail flattening assumption)
+        # Optimum Reach (using tail data)
         optimum_row = df.tail(3).iloc[0]
         optimum_reach = optimum_row['Reach']
         optimum_budget = optimum_row['Budget']
 
-        # Custom slider
-        st.sidebar.header("🎯 Custom Reach Targets")
+        # Sidebar custom reach threshold
+        st.sidebar.header("🎯 Custom Reach Target")
         custom_percent = st.sidebar.slider("Choose custom % of Max Reach", 10, 100, 70)
         custom_target = max_reach * (custom_percent / 100)
 
-        # Closest match
+        # Find closest match for custom
         closest_row = df.iloc[(df['Reach'] - custom_target).abs().argsort()[:1]]
         custom_budget = closest_row['Budget'].values[0]
         custom_reach = closest_row['Reach'].values[0]
@@ -92,10 +95,11 @@ if uploaded_file:
         })
         st.dataframe(summary, use_container_width=True)
 
-        # Plotly chart
+        # Plotly Chart
         st.subheader("📈 Reach Curve")
         fig = go.Figure()
 
+        # Main line
         fig.add_trace(go.Scatter(
             x=df['Budget'],
             y=df['Reach'],
@@ -104,7 +108,7 @@ if uploaded_file:
             line=dict(color='deepskyblue')
         ))
 
-        # Markers
+        # Add reference lines
         fig.add_vline(x=max_budget, line=dict(color='red', dash='dash'),
                       annotation_text=f'Max Reach\nLKR {int(max_budget):,}', annotation_position="top right")
         fig.add_vline(x=optimum_budget, line=dict(color='green', dash='dash'),
@@ -112,6 +116,7 @@ if uploaded_file:
         fig.add_vline(x=custom_budget, line=dict(color='purple', dash='dash'),
                       annotation_text=f'{custom_percent}% Reach\nLKR {int(custom_budget):,}', annotation_position="bottom left")
 
+        # Add points
         fig.add_trace(go.Scatter(
             x=[max_budget, optimum_budget, custom_budget],
             y=[max_reach, optimum_reach, custom_reach],
@@ -120,9 +125,10 @@ if uploaded_file:
             name='Key Points'
         ))
 
+        # Layout config
         fig.update_layout(
             xaxis_title="Budget (LKR)",
-            yaxis_title=f"Reach at {selected_column.split(' ')[2]}+ Frequency",
+            yaxis_title=f"Reach at {selected_display} Frequency",
             plot_bgcolor="#111111",
             paper_bgcolor="#111111",
             font=dict(color='white'),
