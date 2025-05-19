@@ -126,4 +126,4 @@ if uploaded_file:
         st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
-        st.error(f"❌ Error processing file: {e}")
+        st.error(f"❌ Error processing file ONLY INCLUDE THE DATA SHEET AND REMOVE REMAINING INFORMATION: {e}")
