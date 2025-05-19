@@ -54,7 +54,7 @@ if uploaded_file:
         df['Incremental Reach'] = df['Reach'] - df['Previous Reach']
         df['Previous Budget'] = df['Budget'].shift(1)
         df['Incremental Spend'] = df['Budget'] - df['Previous Budget']
-        df['Cost per 1000 Incremental Reach'] = (df['Incremental Spend'] / df['Incremental Reach'])
+        df['Cost per Incremental Reach'] = (df['Incremental Spend'] / df['Incremental Reach'])
 
         # Identify max reach
         max_row = df.loc[df['Reach'].idxmax()]
