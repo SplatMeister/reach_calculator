@@ -126,4 +126,4 @@ if uploaded_file:
         st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
-        st.error(f"❌ Error processing file: {e}")
+        st.error(f"❌ Error processing file. Remove the first 15 columns and only include the data sheet only. {e}")
