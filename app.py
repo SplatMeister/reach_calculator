@@ -75,37 +75,37 @@ if uploaded_file is not None:
             secondary_y=True,
         )
 
-        # Optimum Budget Marker: Reach
+        # Optimum Budget Marker: Reach (annotation to the right)
         fig.add_trace(
             go.Scatter(
                 x=[optimal_budget], y=[optimal_reach],
                 mode='markers+text',
                 marker=dict(size=14, color='orange', line=dict(width=2, color='black')),
-                text=[f"Optimum<br>Budget:<br>{optimal_budget:,.0f}"],
-                textposition="top right",
+                text=[f"<b>Optimum<br>Budget:<br>{optimal_budget:,.0f}</b>"],
+                textposition="middle right",  # move text to the right of the marker
                 name='Optimum Point (Reach)'
             ),
             secondary_y=False,
         )
 
-        # Optimum Budget Marker: Efficiency
+        # Optimum Budget Marker: Efficiency (annotation to the left)
         fig.add_trace(
             go.Scatter(
                 x=[optimal_budget], y=[optimal_efficiency],
                 mode='markers+text',
                 marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-                text=[f"Efficiency:<br>{optimal_efficiency:.2f}"],
-                textposition="bottom right",
+                text=[f"<b>Efficiency:<br>{optimal_efficiency:.2f}</b>"],
+                textposition="bottom left",  # move text below and to the left
                 name='Optimum Point (Efficiency)'
             ),
             secondary_y=True,
         )
 
-        # Axes and layout
+        # Axes and layout (legend outside, big margin on top)
         fig.update_layout(
             title={
-                'text': "Reach at 1+ Frequency & Efficiency vs Budget<br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
-                'y':0.91,  # Push the title up
+                'text': "<b>Reach at 1+ Frequency & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
+                'y':0.90,
                 'x':0.5,
                 'xanchor': 'center',
                 'yanchor': 'top'
@@ -114,13 +114,14 @@ if uploaded_file is not None:
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.06,  # Move legend below the title, adjust as needed
-                xanchor='center',
-                x=0.5,
-                bgcolor='rgba(0,0,0,0)'
+                y=1.20,  # move legend further up, above the plot area
+                xanchor='right',
+                x=1,
+                bgcolor='rgba(0,0,0,0)',
+                font=dict(size=14)
             ),
             template="plotly_white",
-            margin=dict(l=40, r=40, t=120, b=40)  # Increase the top margin
+            margin=dict(l=40, r=40, t=150, b=40)  # more top margin
         )
         fig.update_yaxes(
             title_text='Reach at 1+ Frequency', color='royalblue', secondary_y=False)
