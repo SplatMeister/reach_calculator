@@ -101,27 +101,26 @@ if uploaded_file is not None:
             secondary_y=True,
         )
 
+        # Axes and layout
         fig.update_layout(
-    title={
-        'text': "Reach at 1+ Frequency & Efficiency vs Budget<br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
-        'y':0.92,  # Push the title up
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'
-    },
-    xaxis=dict(title='Budget'),
-    legend=dict(
-        orientation='h',
-        yanchor='top',
-        y=1.04,  # Move legend below the title, adjust as needed
-        xanchor='center',
-        x=0.5,
-        bgcolor='rgba(0,0,0,0)'
-    ),
-    template="plotly_white",
-    margin=dict(l=40, r=40, t=120, b=40)  # Increase the top margin
-)
-
+            title={
+                'text': "Reach at 1+ Frequency & Efficiency vs Budget<br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
+                'y':0.91,  # Push the title up
+                'x':0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
+            xaxis=dict(title='Budget'),
+            legend=dict(
+                orientation='h',
+                yanchor='top',
+                y=1.06,  # Move legend below the title, adjust as needed
+                xanchor='center',
+                x=0.5,
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            template="plotly_white",
+            margin=dict(l=40, r=40, t=120, b=40)  # Increase the top margin
         )
         fig.update_yaxes(
             title_text='Reach at 1+ Frequency', color='royalblue', secondary_y=False)
