@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-import plotly.graph_objects as go
+import plotly.graph_objs as go
 
 st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
 
@@ -51,24 +51,26 @@ if uploaded_file is not None:
         st.success(f"**Optimal Budget (Change in Efficiency minimum): {optimal_budget:,.2f}**")
         st.write(f"Efficiency at this point: {optimal_efficiency:.2f}")
 
-        # --- Plotly Visualization ---
+        # --- Plotly Visualization (proper dual y-axes) ---
         fig = go.Figure()
 
         # Reach at 1+ Frequency (Primary Y axis)
         fig.add_trace(go.Scatter(
             x=df['Budget'], y=df['Reach at 1+ frequency'],
-            mode='lines', name='Reach at 1+ Frequency', line=dict(color='royalblue', width=3),
-            yaxis="y1"
+            mode='lines', name='Reach at 1+ Frequency',
+            line=dict(color='royalblue', width=3),
+            yaxis='y1'
         ))
 
         # Efficiency (Secondary Y axis)
         fig.add_trace(go.Scatter(
             x=df['Budget'], y=df['Efficiency'],
-            mode='lines', name='Efficiency', line=dict(color='seagreen', width=3, dash='dash'),
-            yaxis="y2"
+            mode='lines', name='Efficiency',
+            line=dict(color='seagreen', width=3, dash='dash'),
+            yaxis='y2'
         ))
 
-        # Optimum Budget Marker
+        # Optimum Budget Marker - Reach
         fig.add_trace(go.Scatter(
             x=[optimal_budget], y=[optimal_reach],
             mode='markers+text',
@@ -78,6 +80,7 @@ if uploaded_file is not None:
             name='Optimum Point (Reach)',
             yaxis="y1"
         ))
+        # Optimum Budget Marker - Efficiency
         fig.add_trace(go.Scatter(
             x=[optimal_budget], y=[optimal_efficiency],
             mode='markers+text',
@@ -88,14 +91,27 @@ if uploaded_file is not None:
             yaxis="y2"
         ))
 
+        # Set up axes properly
         fig.update_layout(
             title="Reach at 1+ Frequency & Efficiency vs Budget<br><span style='font-size:16px'>Optimum Point Highlighted</span>",
             xaxis=dict(title='Budget'),
-            yaxis=dict(title='Reach at 1+ Frequency', titlefont=dict(color='royalblue'), tickfont=dict(color='royalblue')),
-            yaxis2=dict(title='Efficiency', titlefont=dict(color='seagreen'), tickfont=dict(color='seagreen'),
-                        overlaying='y', side='right', showgrid=False),
+            yaxis=dict(
+                title='Reach at 1+ Frequency',
+                titlefont=dict(color='royalblue'),
+                tickfont=dict(color='royalblue'),
+                showgrid=True
+            ),
+            yaxis2=dict(
+                title='Efficiency',
+                titlefont=dict(color='seagreen'),
+                tickfont=dict(color='seagreen'),
+                overlaying='y',
+                side='right',
+                showgrid=False
+            ),
             legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5),
-            template="plotly_white"
+            template="plotly_white",
+            margin=dict(l=40, r=40, t=70, b=40)
         )
         st.plotly_chart(fig, use_container_width=True)
 else:
