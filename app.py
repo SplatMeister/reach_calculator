@@ -134,27 +134,21 @@ if uploaded_file is not None:
                 secondary_y=False,
             )
 
-        # ------ FIXED: Layout with proper y values ------
+        # ------ NO TITLE ------
         fig.update_layout(
-            title={
-                'text': "",
-                'y': 0.98,  # Top of the chart area
-                'x': 0.5,
-                'xanchor': 'center',
-                'yanchor': 'top'
-            },
+            title="",  # No chart title at all
             xaxis=dict(title='Budget'),
             legend=dict(
                 orientation='h',
                 yanchor='bottom',
                 y=1.07,    # Just above the chart
-                xanchor='right',
+                xanchor='center',
                 x=0.5,
                 bgcolor='rgba(0,0,0,0)',
                 font=dict(size=14)
             ),
             template="plotly_white",
-            margin=dict(l=40, r=40, t=100, b=40)  # enough top margin for both
+            margin=dict(l=40, r=40, t=100, b=40)
         )
         fig.update_yaxes(
             title_text=selected_col, color='royalblue', secondary_y=False)
