@@ -138,7 +138,7 @@ if uploaded_file is not None:
         fig.update_layout(
             title={
                 'text': f"<b>{selected_col} & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
-                'y': 1,  # Top of the chart area
+                'y': 0.99,  # Top of the chart area
                 'x': 0.5,
                 'xanchor': 'center',
                 'yanchor': 'top'
@@ -147,14 +147,14 @@ if uploaded_file is not None:
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.18,    # Just above the chart
+                y=1.22,    # Just above the chart
                 xanchor='right',
-                x=1,
+                x=0.5,
                 bgcolor='rgba(0,0,0,0)',
                 font=dict(size=14)
             ),
             template="plotly_white",
-            margin=dict(l=40, r=40, t=170, b=40)  # enough top margin for both
+            margin=dict(l=40, r=40, t=260, b=40)  # enough top margin for both
         )
         fig.update_yaxes(
             title_text=selected_col, color='royalblue', secondary_y=False)
