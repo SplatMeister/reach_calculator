@@ -37,7 +37,7 @@ if uploaded_file is not None:
             min_percentage = int((df[selected_col] / temp_max_reach * 100).min())
             max_percentage = int((df[selected_col] / temp_max_reach * 100).max())
             reach_pct_slider = st.slider(
-                "Minimum Reach Percentage to Include",
+                "Custom Reach Percentage",
                 min_value=min_percentage,
                 max_value=max_percentage,
                 value=min(40, max_percentage),
