@@ -158,7 +158,7 @@ if uploaded_file is not None:
                 font=dict(size=14)
             ),
             template="plotly_white",
-            margin=dict(l=40, r=40, t=150, b=40)
+            margin=dict(l=40, r=40, t=220, b=40)
         )
         fig.update_yaxes(
             title_text=selected_col, color='royalblue', secondary_y=False)
