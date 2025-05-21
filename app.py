@@ -157,17 +157,5 @@ if uploaded_file is not None:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Table with selected row at the end ---
-        st.subheader("Data Table (with Selected Reach % row)")
-        show_df = df[['Budget', selected_col, 'Reach Percentage', 'Efficiency']].copy()
-        show_df = show_df.round({'Reach Percentage': 2, 'Efficiency': 2})
-        if slider_row is not None:
-            selected_dict = slider_row[['Budget', selected_col, 'Reach Percentage', 'Efficiency']].to_dict()
-            selected_dict = {k: [v] for k, v in selected_dict.items()}
-            selected_df = pd.DataFrame(selected_dict)
-            selected_df.index = ['Selected Reach %']
-            st.dataframe(pd.concat([show_df, selected_df], axis=0))
-        else:
-            st.dataframe(show_df)
 else:
     st.info("Please upload a CSV file with 'Budget' and at least one 'Reach at X+ frequency' column to begin.")
