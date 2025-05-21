@@ -10,76 +10,80 @@ st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
 st.title("📊 Optimum Budget Detection – Meta Reach Data")
 st.write("""
 Upload your **CSV file** (as exported from Meta Reach Planner).  
-The app will process the data, calculate Efficiency, and visualize **Reach & Efficiency vs Budget**
-with the optimum point (where efficiency change drops the most) highlighted.
+Analyze *any* "Reach at X+ frequency" column, and visualize optimum budget and custom reach thresholds.
 """)
 
 uploaded_file = st.file_uploader("Upload your CSV file", type=['csv'])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    required_cols = ['Budget', 'Reach at 1+ frequency']
-    if not all(col in df.columns for col in required_cols):
-        st.error(f"Your CSV must contain the columns: {required_cols}")
+    # Detect all Reach at X+ frequency columns (up to 10+)
+    reach_cols = [col for col in df.columns if col.startswith('Reach at ') and col.endswith('frequency')]
+    required_cols = ['Budget'] + reach_cols
+    if len(reach_cols) == 0 or 'Budget' not in df.columns:
+        st.error("Your CSV must contain at least one 'Reach at X+ frequency' column and a 'Budget' column.")
     else:
-        # Step 1: Find maximum reach
-        maximum_reach = df["Reach at 1+ frequency"].max()
-        # Step 2: Create percentage of maximum
-        df['Reach Percentage'] = (df['Reach at 1+ frequency'] / maximum_reach) * 100
-        # Step 3: Shift for previous values
+        # --- Sidebar controls ---
+        with st.sidebar:
+            st.header("Analysis Settings")
+            # Select which Reach column to use
+            freq_options = sorted(
+                [(int(col.split(' ')[2][0]), col) for col in reach_cols], key=lambda x: x[0])
+            freq_labels = [f"Reach at {x[0]}+ frequency" for x in freq_options]
+            freq_idx = st.slider("Select Frequency (Reach at X+)", min_value=1, max_value=10, value=1, step=1)
+            # Find the selected column
+            selected_col = f"Reach at {freq_idx}+ frequency"
+            # Validate
+            if selected_col not in df.columns:
+                # Fallback to first available
+                selected_col = freq_options[0][1]
+            # Slider for minimum reach %
+            temp_max_reach = df[selected_col].max()
+            min_percentage = int((df[selected_col] / temp_max_reach * 100).min())
+            max_percentage = int((df[selected_col] / temp_max_reach * 100).max())
+            reach_pct_slider = st.slider(
+                "Minimum Reach Percentage to Include",
+                min_value=min_percentage,
+                max_value=max_percentage,
+                value=min(40, max_percentage),
+                step=1
+            )
+
+        # --- Main calculation using selected frequency ---
+        maximum_reach = df[selected_col].max()
+        df['Reach Percentage'] = (df[selected_col] / maximum_reach) * 100
         df['Previous Reach %'] = df['Reach Percentage'].shift(1)
         df['Previous Budget'] = df['Budget'].shift(1)
-        # Step 4: Calculate Efficiency
         df['Efficiency'] = ((df['Reach Percentage'] / df['Previous Reach %']) /
                             (df['Budget'] / df['Previous Budget'])) * 100
-        # Clean up Efficiency NaN/inf
         df['Efficiency'] = df['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
 
-        # MinMax Scaling
         scaler = MinMaxScaler()
         df['Scaled Budget'] = scaler.fit_transform(df[['Budget']])
         df['Scaled Efficiency'] = scaler.fit_transform(df[['Efficiency']])
-
-        # Calculate change between points
         df['Efficiency Change'] = np.diff(df['Scaled Efficiency'], prepend=np.nan)
 
-        # Find optimal budget (where efficiency change is minimum)
         optimal_budget_index = df['Efficiency Change'].idxmin()
         optimal_budget = df.loc[optimal_budget_index, 'Budget']
         optimal_efficiency = df.loc[optimal_budget_index, 'Efficiency']
-        optimal_reach = df.loc[optimal_budget_index, 'Reach at 1+ frequency']
+        optimal_reach = df.loc[optimal_budget_index, selected_col]
 
         st.success(f"**Optimal Budget (Change in Efficiency minimum): {optimal_budget:,.2f}**")
         st.write(f"Efficiency at this point: {optimal_efficiency:.2f}")
 
-        # --- SLIDER for Minimum Reach Percentage ---
-        min_percentage = int(df['Reach Percentage'].min())
-        max_percentage = int(df['Reach Percentage'].max())
-        reach_pct_slider = st.slider(
-            "Minimum Reach Percentage to Include", 
-            min_value=min_percentage, 
-            max_value=max_percentage, 
-            value=40, 
-            step=1
-        )
-
-        # Find the closest row (at or just above the chosen reach %)
+        # Find the row closest to the selected reach % threshold
         slider_row = df[df['Reach Percentage'] >= reach_pct_slider].iloc[0] if not df[df['Reach Percentage'] >= reach_pct_slider].empty else None
 
-        # --- Plotly make_subplots Visualization ---
+        # --- Plotly Visualization ---
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-        # Primary Y axis: Reach at 1+ Frequency
         fig.add_trace(
             go.Scatter(
-                x=df['Budget'], y=df['Reach at 1+ frequency'],
-                mode='lines', name='Reach at 1+ Frequency',
+                x=df['Budget'], y=df[selected_col],
+                mode='lines', name=selected_col,
                 line=dict(color='royalblue', width=3)
             ),
             secondary_y=False,
         )
-
-        # Secondary Y axis: Efficiency
         fig.add_trace(
             go.Scatter(
                 x=df['Budget'], y=df['Efficiency'],
@@ -88,8 +92,6 @@ if uploaded_file is not None:
             ),
             secondary_y=True,
         )
-
-        # Optimum Budget Marker: Reach (annotation to the right)
         fig.add_trace(
             go.Scatter(
                 x=[optimal_budget], y=[optimal_reach],
@@ -101,8 +103,6 @@ if uploaded_file is not None:
             ),
             secondary_y=False,
         )
-
-        # Optimum Budget Marker: Efficiency (annotation to the left)
         fig.add_trace(
             go.Scatter(
                 x=[optimal_budget], y=[optimal_efficiency],
@@ -115,7 +115,7 @@ if uploaded_file is not None:
             secondary_y=True,
         )
 
-        # --- SLIDER MARKER (vertical line and point at chosen reach %) ---
+        # SLIDER vertical marker
         if slider_row is not None:
             fig.add_vline(
                 x=slider_row['Budget'],
@@ -126,11 +126,10 @@ if uploaded_file is not None:
                 annotation_font_size=14,
                 annotation_font_color="purple"
             )
-            # Optional: marker at the exact point
             fig.add_trace(
                 go.Scatter(
                     x=[slider_row['Budget']],
-                    y=[slider_row['Reach at 1+ frequency']],
+                    y=[slider_row[selected_col]],
                     mode='markers+text',
                     marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
                     text=[f"{slider_row['Reach Percentage']:.1f}%"],
@@ -140,10 +139,9 @@ if uploaded_file is not None:
                 secondary_y=False,
             )
 
-        # Axes and layout (legend outside, big margin on top)
         fig.update_layout(
             title={
-                'text': "<b>Reach at 1+ Frequency & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
+                'text': f"<b>{selected_col} & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
                 'y':0.90,
                 'x':0.5,
                 'xanchor': 'center',
@@ -163,25 +161,23 @@ if uploaded_file is not None:
             margin=dict(l=40, r=40, t=150, b=40)
         )
         fig.update_yaxes(
-            title_text='Reach at 1+ Frequency', color='royalblue', secondary_y=False)
+            title_text=selected_col, color='royalblue', secondary_y=False)
         fig.update_yaxes(
             title_text='Efficiency', color='seagreen', secondary_y=True)
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- Table with an extra row for the slider selection ---
+        # --- Table with selected row at the end ---
         st.subheader("Data Table (with Selected Reach % row)")
-        show_df = df[['Budget', 'Reach at 1+ frequency', 'Reach Percentage', 'Efficiency']].copy()
+        show_df = df[['Budget', selected_col, 'Reach Percentage', 'Efficiency']].copy()
         show_df = show_df.round({'Reach Percentage': 2, 'Efficiency': 2})
-        # Add the selected row as a new row at the end (with a label)
         if slider_row is not None:
-            selected_dict = slider_row[['Budget', 'Reach at 1+ frequency', 'Reach Percentage', 'Efficiency']].to_dict()
+            selected_dict = slider_row[['Budget', selected_col, 'Reach Percentage', 'Efficiency']].to_dict()
             selected_dict = {k: [v] for k, v in selected_dict.items()}
             selected_df = pd.DataFrame(selected_dict)
             selected_df.index = ['Selected Reach %']
-            # Display table with the selected row at the end
             st.dataframe(pd.concat([show_df, selected_df], axis=0))
         else:
             st.dataframe(show_df)
 else:
-    st.info("Please upload a CSV file with 'Budget' and 'Reach at 1+ frequency' columns to begin.")
+    st.info("Please upload a CSV file with 'Budget' and at least one 'Reach at X+ frequency' column to begin.")
