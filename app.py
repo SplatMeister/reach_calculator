@@ -139,11 +139,12 @@ if uploaded_file is not None:
                 secondary_y=False,
             )
 
+        # ----------- LEGEND & TITLE & MARGIN FIX HERE --------------
         fig.update_layout(
             title={
                 'text': f"<b>{selected_col} & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
-                'y':0.90,
-                'x':0.5,
+                'y': 1.13,  # Move title up above plot area
+                'x': 0.5,
                 'xanchor': 'center',
                 'yanchor': 'top'
             },
@@ -151,15 +152,17 @@ if uploaded_file is not None:
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.20,
+                y=1.30,    # Move legend further above plot area
                 xanchor='right',
                 x=1,
                 bgcolor='rgba(0,0,0,0)',
                 font=dict(size=14)
             ),
             template="plotly_white",
-            margin=dict(l=40, r=40, t=320, b=40)
+            margin=dict(l=40, r=40, t=220, b=40)  # Increase top margin
         )
+        # ------------------------------------------------------------
+
         fig.update_yaxes(
             title_text=selected_col, color='royalblue', secondary_y=False)
         fig.update_yaxes(
