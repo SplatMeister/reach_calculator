@@ -26,18 +26,13 @@ if uploaded_file is not None:
         # --- Sidebar controls ---
         with st.sidebar:
             st.header("Analysis Settings")
-            # Select which Reach column to use
             freq_options = sorted(
                 [(int(col.split(' ')[2][0]), col) for col in reach_cols], key=lambda x: x[0])
             freq_labels = [f"Reach at {x[0]}+ frequency" for x in freq_options]
             freq_idx = st.slider("Select Frequency (Reach at X+)", min_value=1, max_value=10, value=1, step=1)
-            # Find the selected column
             selected_col = f"Reach at {freq_idx}+ frequency"
-            # Validate
             if selected_col not in df.columns:
-                # Fallback to first available
                 selected_col = freq_options[0][1]
-            # Slider for minimum reach %
             temp_max_reach = df[selected_col].max()
             min_percentage = int((df[selected_col] / temp_max_reach * 100).min())
             max_percentage = int((df[selected_col] / temp_max_reach * 100).max())
@@ -139,11 +134,12 @@ if uploaded_file is not None:
                 secondary_y=False,
             )
 
+        # ------ FIXED: Layout with proper y values ------
         fig.update_layout(
             title={
                 'text': f"<b>{selected_col} & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
-                'y':1.90,
-                'x':0.5,
+                'y': 1,  # Top of the chart area
+                'x': 0.5,
                 'xanchor': 'center',
                 'yanchor': 'top'
             },
@@ -151,14 +147,14 @@ if uploaded_file is not None:
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.36,
+                y=1.18,    # Just above the chart
                 xanchor='right',
                 x=1,
                 bgcolor='rgba(0,0,0,0)',
                 font=dict(size=14)
             ),
             template="plotly_white",
-            margin=dict(l=40, r=40, t=260, b=40)
+            margin=dict(l=40, r=40, t=170, b=40)  # enough top margin for both
         )
         fig.update_yaxes(
             title_text=selected_col, color='royalblue', secondary_y=False)
