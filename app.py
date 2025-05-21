@@ -137,7 +137,7 @@ if uploaded_file is not None:
         # ------ FIXED: Layout with proper y values ------
         fig.update_layout(
             title={
-                #'text': f"<b>{selected_col} & Efficiency vs Budget</b><br><span style='font-size:15px; font-weight:normal'>Optimum Point Highlighted</span>",
+                'text': "",
                 'y': 0.98,  # Top of the chart area
                 'x': 0.5,
                 'xanchor': 'center',
