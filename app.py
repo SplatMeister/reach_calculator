@@ -138,13 +138,12 @@ if meta_file is not None:
         st.plotly_chart(fig, use_container_width=True)
 
 ########################
-# --- GOOGLE SECTION (Meta logic as you wrote) ---#
+# --- GOOGLE SECTION ---#
 ########################
 st.header("Google Data")
 st.write("""
 Upload your **Google Reach CSV** (with `"Total Budget"` and `"1+ on-target reach"` columns).  
 Enter your USD to LKR conversion rate.
-Calculation and visualization follows the Meta logic exactly.
 """)
 
 google_file = st.file_uploader("Upload your Google CSV file", type=['csv'], key='google')
@@ -155,21 +154,18 @@ if google_file is not None:
 
     df1 = pd.read_csv(google_file)
 
-    # Clean up and ensure columns are numeric
-    for col in ['Total Budget', '1+ on-target reach']:
-        df1[col] = pd.to_numeric(df1[col].astype(str).str.replace(',', '').str.strip(), errors='coerce')
-
+    # Apply your cleaning/conversion logic
+    df1 = df1.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '').str.strip(), errors='coerce'))
     df1 = df1.dropna(subset=['Total Budget', '1+ on-target reach'])
     df1['Budget_LKR'] = df1['Total Budget'] * conversion_rate
 
-    # Step 1: Calculate maximum reach
+    # Your steps for calculation
     maximum_reach_google = df1["1+ on-target reach"].max()
-    # Step 2: Create a new column as percentage of maximum
     df1['Reach Percentage'] = (df1['1+ on-target reach'] / maximum_reach_google) * 100
-    # Step 3: Shift Reach % and Budget to get previous row values
     df1['Previous Reach %'] = df1['Reach Percentage'].shift(1)
     df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
-    # Step 4: Compute Efficiency (Meta logic, i.e. ratio of %s)
+
+    # Compute Efficiency as you requested (same as Meta)
     df1['Efficiency'] = ((df1['Reach Percentage'] / df1['Previous Reach %']) /
                          (df1['Budget_LKR'] / df1['Previous Budget_LKR'])) * 100
     df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
