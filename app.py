@@ -194,10 +194,9 @@ if google_file is not None:
     df1 = google_df.copy()
     df1['Previous Reach %'] = df1['Reach Percentage'].shift(1)
     df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
-    # ---- USE META'S EFFICIENCY LOGIC HERE! ----
-    df1['Efficiency'] = ((df1['Reach Percentage'] / df1['Previous Reach %']) /
-                         (df1['Budget_LKR'] / df1['Previous Budget_LKR'])) * 100
-    df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
+    df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) /
+                         (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
+    df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
     scaler_g = MinMaxScaler()
     df1['Scaled Budget_LKR'] = scaler_g.fit_transform(df1[['Budget_LKR']])
@@ -228,6 +227,7 @@ if google_file is not None:
             mode='lines', name='Efficiency',
             line=dict(color='seagreen', width=3, dash='dash')
         ), secondary_y=True)
+    # Optimum point may be at index 1, so always include it even if first row is skipped in chart
     fig_g.add_trace(go.Scatter(
             x=[optimal_budget_g], y=[optimal_reach_g],
             mode='markers+text',
