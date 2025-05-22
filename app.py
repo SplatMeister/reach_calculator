@@ -52,17 +52,20 @@ if meta_file is not None:
         df['Efficiency'] = ((df['Reach Percentage'] / df['Previous Reach %']) /
                             (df['Budget'] / df['Previous Budget'])) * 100
         df['Efficiency'] = df['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
+
+        # Find change in efficiency (for optimum "elbow" detection)
         scaler = MinMaxScaler()
         df['Scaled Budget'] = scaler.fit_transform(df[['Budget']])
         df['Scaled Efficiency'] = scaler.fit_transform(df[['Efficiency']])
         df['Efficiency Change'] = np.diff(df['Scaled Efficiency'], prepend=np.nan)
 
+        # Optimum point = where efficiency change is **minimum**
         optimal_budget_index = df['Efficiency Change'].idxmin()
         optimal_budget = df.loc[optimal_budget_index, 'Budget']
         optimal_efficiency = df.loc[optimal_budget_index, 'Efficiency']
         optimal_reach = df.loc[optimal_budget_index, selected_col]
 
-        st.success(f"**Meta: Optimal Budget (Change in Efficiency minimum): {optimal_budget:,.2f} LKR**")
+        st.success(f"**Meta: Optimal Budget (Change in Efficiency minimum/elbow): {optimal_budget:,.2f} LKR**")
         st.write(f"Meta: Efficiency at this point: {optimal_efficiency:.2f}")
 
         slider_row = df[df['Reach Percentage'] >= reach_pct_slider].iloc[0] if not df[df['Reach Percentage'] >= reach_pct_slider].empty else None
@@ -138,7 +141,7 @@ if meta_file is not None:
         st.plotly_chart(fig, use_container_width=True)
 
 ########################
-# --- GOOGLE SECTION (difference logic, as you asked for) ---#
+# --- GOOGLE SECTION (difference logic, optimum = min efficiency change/elbow) ---#
 ########################
 st.header("Google Data")
 st.write("""
@@ -149,6 +152,7 @@ Calculation:
 - Maximum Reach  
 - Reach Percentage  
 - Incremental Efficiency = (Current % - Previous %) / (Current Budget - Previous Budget) × 100  
+- **Optimum point is where the change in efficiency is minimum (elbow) – just like Meta**  
 - Visualize Budget (LKR) vs 1+ on-target reach and Efficiency.
 """)
 
@@ -159,8 +163,6 @@ if google_file is not None:
         conversion_rate = st.number_input("Google: USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
 
     df1 = pd.read_csv(google_file)
-
-    # Apply your cleaning/conversion logic
     df1 = df1.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '').str.strip(), errors='coerce'))
     df1 = df1.dropna(subset=['Total Budget', '1+ on-target reach'])
     df1['Budget_LKR'] = df1['Total Budget'] * conversion_rate
@@ -176,6 +178,17 @@ if google_file is not None:
                          (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
     df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
+    # For optimum point (elbow): look for minimum change in normalized efficiency
+    scaler_g = MinMaxScaler()
+    df1['Scaled Budget_LKR'] = scaler_g.fit_transform(df1[['Budget_LKR']])
+    df1['Scaled Efficiency'] = scaler_g.fit_transform(df1[['Efficiency']])
+    df1['Efficiency Change'] = np.diff(df1['Scaled Efficiency'], prepend=np.nan)
+
+    optimal_budget_index_g = df1['Efficiency Change'].idxmin()
+    optimal_budget_g = df1.loc[optimal_budget_index_g, 'Budget_LKR']
+    optimal_efficiency_g = df1.loc[optimal_budget_index_g, 'Efficiency']
+    optimal_reach_g = df1.loc[optimal_budget_index_g, '1+ on-target reach']
+
     min_percentage_g = int(df1['Reach Percentage'].min())
     max_percentage_g = int(df1['Reach Percentage'].max())
     reach_pct_slider_g = st.slider(
@@ -189,17 +202,7 @@ if google_file is not None:
 
     slider_row_g = df1[df1['Reach Percentage'] >= reach_pct_slider_g].iloc[0] if not df1[df1['Reach Percentage'] >= reach_pct_slider_g].empty else None
 
-    # Find optimum (where efficiency is max, ignoring zeros)
-    non_zero_eff = df1[df1['Efficiency'] != 0]
-    if not non_zero_eff.empty:
-        optimal_budget_index_g = non_zero_eff['Efficiency'].idxmax()
-    else:
-        optimal_budget_index_g = df1.index[0]
-    optimal_budget_g = df1.loc[optimal_budget_index_g, 'Budget_LKR']
-    optimal_efficiency_g = df1.loc[optimal_budget_index_g, 'Efficiency']
-    optimal_reach_g = df1.loc[optimal_budget_index_g, '1+ on-target reach']
-
-    st.success(f"**Google: Optimal Budget (Highest Incremental Efficiency): {optimal_budget_g:,.2f} LKR**")
+    st.success(f"**Google: Optimal Budget (Change in Efficiency minimum/elbow): {optimal_budget_g:,.2f} LKR**")
     st.write(f"Google: Efficiency at this point: {optimal_efficiency_g:.2f}")
 
     fig_g = make_subplots(specs=[[{"secondary_y": True}]])
