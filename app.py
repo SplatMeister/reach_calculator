@@ -44,7 +44,7 @@ if meta_file is not None:
                 step=1
             )
 
-        # ---- Calculations ----
+        # ---- Meta Calculations (division/ratio logic) ----
         maximum_reach = df[selected_col].max()
         df['Reach Percentage'] = (df[selected_col] / maximum_reach) * 100
         df['Previous Reach %'] = df['Reach Percentage'].shift(1)
@@ -119,7 +119,7 @@ if meta_file is not None:
             )
 
         fig.update_layout(
-            title="",  # No chart title at all
+            title="",
             xaxis=dict(title='Budget (LKR)'),
             legend=dict(
                 orientation='h',
@@ -138,12 +138,18 @@ if meta_file is not None:
         st.plotly_chart(fig, use_container_width=True)
 
 ########################
-# --- GOOGLE SECTION ---#
+# --- GOOGLE SECTION (difference logic, as you asked for) ---#
 ########################
 st.header("Google Data")
 st.write("""
 Upload your **Google Reach CSV** (with `"Total Budget"` and `"1+ on-target reach"` columns).  
 Enter your USD to LKR conversion rate.
+
+Calculation:  
+- Maximum Reach  
+- Reach Percentage  
+- Incremental Efficiency = (Current % - Previous %) / (Current Budget - Previous Budget) × 100  
+- Visualize Budget (LKR) vs 1+ on-target reach and Efficiency.
 """)
 
 google_file = st.file_uploader("Upload your Google CSV file", type=['csv'], key='google')
@@ -159,27 +165,16 @@ if google_file is not None:
     df1 = df1.dropna(subset=['Total Budget', '1+ on-target reach'])
     df1['Budget_LKR'] = df1['Total Budget'] * conversion_rate
 
-    # Your steps for calculation
+    # Google calculation (difference logic)
     maximum_reach_google = df1["1+ on-target reach"].max()
     df1['Reach Percentage'] = (df1['1+ on-target reach'] / maximum_reach_google) * 100
     df1['Previous Reach %'] = df1['Reach Percentage'].shift(1)
     df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
 
-    # Compute Efficiency as you requested (same as Meta)
+    # Incremental efficiency (difference, NOT ratio)
     df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) /
                          (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
-    df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
-
-    # Scaling and optimum as in Meta
-    scaler_g = MinMaxScaler()
-    df1['Scaled Budget_LKR'] = scaler_g.fit_transform(df1[['Budget_LKR']])
-    df1['Scaled Efficiency'] = scaler_g.fit_transform(df1[['Efficiency']])
-    df1['Efficiency Change'] = np.diff(df1['Scaled Efficiency'], prepend=np.nan)
-
-    optimal_budget_index_g = df1['Efficiency Change'].idxmin()
-    optimal_budget_g = df1.loc[optimal_budget_index_g, 'Budget_LKR']
-    optimal_efficiency_g = df1.loc[optimal_budget_index_g, 'Efficiency']
-    optimal_reach_g = df1.loc[optimal_budget_index_g, '1+ on-target reach']
+    df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
     min_percentage_g = int(df1['Reach Percentage'].min())
     max_percentage_g = int(df1['Reach Percentage'].max())
@@ -194,7 +189,17 @@ if google_file is not None:
 
     slider_row_g = df1[df1['Reach Percentage'] >= reach_pct_slider_g].iloc[0] if not df1[df1['Reach Percentage'] >= reach_pct_slider_g].empty else None
 
-    st.success(f"**Google: Optimal Budget (Change in Efficiency minimum): {optimal_budget_g:,.2f} LKR**")
+    # Find optimum (where efficiency is max, ignoring zeros)
+    non_zero_eff = df1[df1['Efficiency'] != 0]
+    if not non_zero_eff.empty:
+        optimal_budget_index_g = non_zero_eff['Efficiency'].idxmax()
+    else:
+        optimal_budget_index_g = df1.index[0]
+    optimal_budget_g = df1.loc[optimal_budget_index_g, 'Budget_LKR']
+    optimal_efficiency_g = df1.loc[optimal_budget_index_g, 'Efficiency']
+    optimal_reach_g = df1.loc[optimal_budget_index_g, '1+ on-target reach']
+
+    st.success(f"**Google: Optimal Budget (Highest Incremental Efficiency): {optimal_budget_g:,.2f} LKR**")
     st.write(f"Google: Efficiency at this point: {optimal_efficiency_g:.2f}")
 
     fig_g = make_subplots(specs=[[{"secondary_y": True}]])
@@ -249,7 +254,7 @@ if google_file is not None:
         )
 
     fig_g.update_layout(
-        title="",  # No chart title at all
+        title="",
         xaxis=dict(title='Budget (LKR)'),
         legend=dict(
             orientation='h',
