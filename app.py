@@ -144,7 +144,7 @@ st.header("Google Data")
 st.write("""
 Upload your **Google Reach CSV** (with `"Total Budget"` and `"1+ on-target reach"` columns).  
 Enter your USD to LKR conversion rate.  
-Calculation and visualization is now exactly the same as Meta.
+Calculation: Maximum Reach %, incremental reach %, incremental budget, efficiency = ((current% - previous%)/(current budget - previous budget)) * 100.
 """)
 google_file = st.file_uploader("Upload your Google CSV file", type=['csv'], key='google')
 
@@ -166,24 +166,19 @@ if google_file is not None:
         # Convert USD to LKR
         df_g['Budget_LKR'] = df_g['Total Budget'] * conversion_rate
 
-        # --- Use exactly the Meta logic on Google data ---
+        # Step 1: Calculate maximum_reach
         maximum_reach_g = df_g['1+ on-target reach'].max()
+        # Step 2: Reach Percentage
         df_g['Reach Percentage'] = (df_g['1+ on-target reach'] / maximum_reach_g) * 100
-        df_g['Previous Reach %'] = df_g['Reach Percentage'].shift(1)
+        # Step 3: Efficiency as incremental reach % per incremental budget
+        df_g['Previous Reach Percentage'] = df_g['Reach Percentage'].shift(1)
         df_g['Previous Budget_LKR'] = df_g['Budget_LKR'].shift(1)
-        df_g['Efficiency'] = ((df_g['Reach Percentage'] / df_g['Previous Reach %']) /
-                              (df_g['Budget_LKR'] / df_g['Previous Budget_LKR'])) * 100
-        df_g['Efficiency'] = df_g['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
-        scaler_g = MinMaxScaler()
-        df_g['Scaled Budget_LKR'] = scaler_g.fit_transform(df_g[['Budget_LKR']])
-        df_g['Scaled Efficiency'] = scaler_g.fit_transform(df_g[['Efficiency']])
-        df_g['Efficiency Change'] = np.diff(df_g['Scaled Efficiency'], prepend=np.nan)
+        # This is the ONLY difference from Meta!
+        df_g['Efficiency'] = ((df_g['Reach Percentage'] - df_g['Previous Reach Percentage']) /
+                              (df_g['Budget_LKR'] - df_g['Previous Budget_LKR'])) * 100
+        df_g['Efficiency'] = df_g['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
-        optimal_budget_index_g = df_g['Efficiency Change'].idxmin()
-        optimal_budget_g = df_g.loc[optimal_budget_index_g, 'Budget_LKR']
-        optimal_efficiency_g = df_g.loc[optimal_budget_index_g, 'Efficiency']
-        optimal_reach_g = df_g.loc[optimal_budget_index_g, '1+ on-target reach']
-
+        # Get slider limits
         min_percentage_g = int(df_g['Reach Percentage'].min())
         max_percentage_g = int(df_g['Reach Percentage'].max())
         reach_pct_slider_g = st.slider(
@@ -195,11 +190,22 @@ if google_file is not None:
             key="google_slider"
         )
 
+        # Find the row closest to the selected reach % threshold
         slider_row_g = df_g[df_g['Reach Percentage'] >= reach_pct_slider_g].iloc[0] if not df_g[df_g['Reach Percentage'] >= reach_pct_slider_g].empty else None
 
-        st.success(f"**Google: Optimal Budget (Change in Efficiency minimum): {optimal_budget_g:,.2f} LKR**")
+        # Find optimum (where Efficiency is max, ignore NaN or inf)
+        if (df_g['Efficiency'] != 0).any():
+            optimal_budget_index_g = df_g['Efficiency'].idxmax()
+        else:
+            optimal_budget_index_g = df_g.index[0]
+        optimal_budget_g = df_g.loc[optimal_budget_index_g, 'Budget_LKR']
+        optimal_efficiency_g = df_g.loc[optimal_budget_index_g, 'Efficiency']
+        optimal_reach_g = df_g.loc[optimal_budget_index_g, '1+ on-target reach']
+
+        st.success(f"**Google: Optimal Budget (Highest Incremental Efficiency): {optimal_budget_g:,.2f} LKR**")
         st.write(f"Google: Efficiency at this point: {optimal_efficiency_g:.2f}")
 
+        # --- Plotly Visualization ---
         fig_g = make_subplots(specs=[[{"secondary_y": True}]])
         fig_g.add_trace(go.Scatter(
                 x=df_g['Budget_LKR'], y=df_g['1+ on-target reach'],
