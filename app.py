@@ -144,8 +144,7 @@ st.header("Google Data")
 st.write("""
 Upload your **Google Reach CSV**.  
 Enter your USD to LKR conversion rate.  
-Google calculations use `"Total Budget"` (USD, converted) and `"1+ on-target reach"` column.  
-Use the `"Frequency"` column to select reach frequency (like Meta).
+Google calculations use `"Total Budget"` (USD, converted), `"1+ on-target reach"` column, and `"Frequency"` for slider selection.
 """)
 google_file = st.file_uploader("Upload your Google CSV file", type=['csv'], key='google')
 
@@ -160,11 +159,17 @@ if google_file is not None:
     if 'Total Budget' not in df_g.columns or '1+ on-target reach' not in df_g.columns or 'Frequency' not in df_g.columns:
         st.error("Your Google CSV must have columns: 'Total Budget', '1+ on-target reach', and 'Frequency'.")
     else:
+        # --- CLEAN THE DATA ---
+        df_g['Total Budget'] = pd.to_numeric(df_g['Total Budget'].astype(str).str.replace(',', '').str.strip(), errors='coerce')
+        df_g['1+ on-target reach'] = pd.to_numeric(df_g['1+ on-target reach'].astype(str).str.replace(',', '').str.strip(), errors='coerce')
+        df_g['Frequency'] = pd.to_numeric(df_g['Frequency'], errors='coerce')
+        df_g = df_g.dropna(subset=['Total Budget', '1+ on-target reach', 'Frequency'])
+
         # Convert USD to LKR for budget
         df_g['Budget_LKR'] = df_g['Total Budget'] * conversion_rate
 
         # Get unique frequency values for slider (sorted, integer only)
-        frequency_options = sorted(df_g['Frequency'].unique())
+        frequency_options = sorted(df_g['Frequency'].dropna().unique())
         freq_selected = st.slider(
             "Google: Select Frequency",
             min_value=int(min(frequency_options)),
