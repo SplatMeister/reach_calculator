@@ -192,6 +192,7 @@ Upload your **Google Reach CSV** (with `"Total Budget"` and `"1+ on-target reach
 
 if google_file is not None:
     df1 = google_df.copy()
+    # Calculation already done in sidebar, now finish rest here
     df1['Previous Reach %'] = df1['Reach Percentage'].shift(1)
     df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
     df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) /
@@ -213,21 +214,17 @@ if google_file is not None:
     st.success(f"**Google: Optimal Budget (Change in Efficiency minimum/elbow): {optimal_budget_g:,.2f} LKR**")
     st.write(f"Google: Efficiency at this point: {optimal_efficiency_g:.2f}")
 
-    # --------- SKIP FIRST ROW IN VISUALIZATION ---------
-    df1_vis = df1.iloc[1:].copy()
-
     fig_g = make_subplots(specs=[[{"secondary_y": True}]])
     fig_g.add_trace(go.Scatter(
-            x=df1_vis['Budget_LKR'], y=df1_vis['1+ on-target reach'],
+            x=df1['Budget_LKR'], y=df1['1+ on-target reach'],
             mode='lines', name='1+ on-target reach',
             line=dict(color='royalblue', width=3)
         ), secondary_y=False)
     fig_g.add_trace(go.Scatter(
-            x=df1_vis['Budget_LKR'], y=df1_vis['Efficiency'],
+            x=df1['Budget_LKR'], y=df1['Efficiency'],
             mode='lines', name='Efficiency',
             line=dict(color='seagreen', width=3, dash='dash')
         ), secondary_y=True)
-    # Optimum point may be at index 1, so always include it even if first row is skipped in chart
     fig_g.add_trace(go.Scatter(
             x=[optimal_budget_g], y=[optimal_reach_g],
             mode='markers+text',
@@ -245,7 +242,7 @@ if google_file is not None:
             name='Optimum Point (Efficiency)'
         ), secondary_y=True)
 
-    if slider_row_g is not None and slider_row_g.name != 0:
+    if slider_row_g is not None:
         fig_g.add_vline(
             x=slider_row_g['Budget_LKR'],
             line_dash="dot",
