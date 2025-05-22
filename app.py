@@ -9,6 +9,21 @@ st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
 
 st.title("📊 Optimum Budget Detection – Meta & Google Data")
 
+#############################
+# --- SIDEBAR CONTROLS --- #
+#############################
+
+with st.sidebar:
+    st.header("Meta Analysis Settings")
+    meta_settings = {}
+    meta_file_uploaded = st.session_state.get("meta_file_uploaded", False)
+    # We'll set the freq slider below only if meta file is uploaded
+
+    st.markdown("---")
+    st.header("Google Settings")
+    conversion_rate = st.number_input("Google: USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
+    google_settings = {}
+
 #######################
 # --- META SECTION ---#
 #######################
@@ -20,6 +35,7 @@ Analyze *any* "Reach at X+ frequency" column, and visualize optimum budget and c
 
 meta_file = st.file_uploader("Upload your Meta CSV file", type=['csv'], key='meta')
 if meta_file is not None:
+    st.session_state["meta_file_uploaded"] = True  # To use in sidebar
     df = pd.read_csv(meta_file)
     reach_cols = [col for col in df.columns if col.startswith('Reach at ') and col.endswith('frequency')]
     required_cols = ['Budget'] + reach_cols
@@ -27,22 +43,26 @@ if meta_file is not None:
         st.error("Your CSV must contain at least one 'Reach at X+ frequency' column and a 'Budget' column.")
     else:
         with st.sidebar:
-            st.header("Meta Analysis Settings")
-            freq_options = sorted([(int(col.split(' ')[2][0]), col) for col in reach_cols], key=lambda x: x[0])
-            freq_idx = st.slider("Meta: Select Frequency (Reach at X+)", min_value=1, max_value=10, value=1, step=1)
-            selected_col = f"Reach at {freq_idx}+ frequency"
-            if selected_col not in df.columns:
-                selected_col = freq_options[0][1]
-            temp_max_reach = df[selected_col].max()
-            min_percentage = int((df[selected_col] / temp_max_reach * 100).min())
-            max_percentage = int((df[selected_col] / temp_max_reach * 100).max())
-            reach_pct_slider = st.slider(
-                "Meta: Custom Reach Percentage",
-                min_value=min_percentage,
-                max_value=max_percentage,
-                value=min(40, max_percentage),
-                step=1
-            )
+            if reach_cols:
+                freq_options = sorted([(int(col.split(' ')[2][0]), col) for col in reach_cols], key=lambda x: x[0])
+                freq_idx = st.slider("Meta: Select Frequency (Reach at X+)", min_value=1, max_value=10, value=1, step=1, key="meta_freq_slider")
+                selected_col = f"Reach at {freq_idx}+ frequency"
+                if selected_col not in df.columns:
+                    selected_col = freq_options[0][1]
+                temp_max_reach = df[selected_col].max()
+                min_percentage = int((df[selected_col] / temp_max_reach * 100).min())
+                max_percentage = int((df[selected_col] / temp_max_reach * 100).max())
+                reach_pct_slider = st.slider(
+                    "Meta: Custom Reach Percentage",
+                    min_value=min_percentage,
+                    max_value=max_percentage,
+                    value=min(40, max_percentage),
+                    step=1,
+                    key="meta_reach_slider"
+                )
+            else:
+                selected_col = reach_cols[0]
+                reach_pct_slider = 40
 
         # ---- Meta Calculations (division/ratio logic) ----
         maximum_reach = df[selected_col].max()
@@ -53,13 +73,11 @@ if meta_file is not None:
                             (df['Budget'] / df['Previous Budget'])) * 100
         df['Efficiency'] = df['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
 
-        # Find change in efficiency (for optimum "elbow" detection)
         scaler = MinMaxScaler()
         df['Scaled Budget'] = scaler.fit_transform(df[['Budget']])
         df['Scaled Efficiency'] = scaler.fit_transform(df[['Efficiency']])
         df['Efficiency Change'] = np.diff(df['Scaled Efficiency'], prepend=np.nan)
 
-        # Optimum point = where efficiency change is **minimum**
         optimal_budget_index = df['Efficiency Change'].idxmin()
         optimal_budget = df.loc[optimal_budget_index, 'Budget']
         optimal_efficiency = df.loc[optimal_budget_index, 'Efficiency']
@@ -146,22 +164,10 @@ if meta_file is not None:
 st.header("Google Data")
 st.write("""
 Upload your **Google Reach CSV** (with `"Total Budget"` and `"1+ on-target reach"` columns).  
-Enter your USD to LKR conversion rate.
-
-Calculation:  
-- Maximum Reach  
-- Reach Percentage  
-- Incremental Efficiency = (Current % - Previous %) / (Current Budget - Previous Budget) × 100  
-- **Optimum point is where the change in efficiency is minimum (elbow) – just like Meta**  
-- Visualize Budget (LKR) vs 1+ on-target reach and Efficiency.
 """)
 
 google_file = st.file_uploader("Upload your Google CSV file", type=['csv'], key='google')
 if google_file is not None:
-    with st.sidebar:
-        st.header("Google Settings")
-        conversion_rate = st.number_input("Google: USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
-
     df1 = pd.read_csv(google_file)
     df1 = df1.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '').str.strip(), errors='coerce'))
     df1 = df1.dropna(subset=['Total Budget', '1+ on-target reach'])
@@ -178,6 +184,21 @@ if google_file is not None:
                          (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
     df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
+    # Place the Google reach slider in sidebar under "Google Settings"
+    with st.sidebar:
+        min_percentage_g = int(df1['Reach Percentage'].min())
+        max_percentage_g = int(df1['Reach Percentage'].max())
+        reach_pct_slider_g = st.slider(
+            "Google: Custom Reach Percentage",
+            min_value=min_percentage_g,
+            max_value=max_percentage_g,
+            value=min(40, max_percentage_g),
+            step=1,
+            key="google_slider"
+        )
+
+    slider_row_g = df1[df1['Reach Percentage'] >= reach_pct_slider_g].iloc[0] if not df1[df1['Reach Percentage'] >= reach_pct_slider_g].empty else None
+
     # For optimum point (elbow): look for minimum change in normalized efficiency
     scaler_g = MinMaxScaler()
     df1['Scaled Budget_LKR'] = scaler_g.fit_transform(df1[['Budget_LKR']])
@@ -188,19 +209,6 @@ if google_file is not None:
     optimal_budget_g = df1.loc[optimal_budget_index_g, 'Budget_LKR']
     optimal_efficiency_g = df1.loc[optimal_budget_index_g, 'Efficiency']
     optimal_reach_g = df1.loc[optimal_budget_index_g, '1+ on-target reach']
-
-    min_percentage_g = int(df1['Reach Percentage'].min())
-    max_percentage_g = int(df1['Reach Percentage'].max())
-    reach_pct_slider_g = st.slider(
-        "Google: Custom Reach Percentage",
-        min_value=min_percentage_g,
-        max_value=max_percentage_g,
-        value=min(40, max_percentage_g),
-        step=1,
-        key="google_slider"
-    )
-
-    slider_row_g = df1[df1['Reach Percentage'] >= reach_pct_slider_g].iloc[0] if not df1[df1['Reach Percentage'] >= reach_pct_slider_g].empty else None
 
     st.success(f"**Google: Optimal Budget (Change in Efficiency minimum/elbow): {optimal_budget_g:,.2f} LKR**")
     st.write(f"Google: Efficiency at this point: {optimal_efficiency_g:.2f}")
