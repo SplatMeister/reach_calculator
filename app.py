@@ -166,8 +166,8 @@ if google_file is not None:
     df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
 
     # Compute Efficiency as you requested (same as Meta)
-    df1['Efficiency'] = ((df1['Reach Percentage'] / df1['Previous Reach %']) /
-                         (df1['Budget_LKR'] / df1['Previous Budget_LKR'])) * 100
+    df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) /
+                         (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
     df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
 
     # Scaling and optimum as in Meta
