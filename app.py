@@ -199,20 +199,44 @@ if google_file is not None:
                          (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
     df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
-    scaler_g = MinMaxScaler()
-    df1['Scaled Budget_LKR'] = scaler_g.fit_transform(df1[['Budget_LKR']])
-    df1['Scaled Efficiency'] = scaler_g.fit_transform(df1[['Efficiency']])
-    df1['Efficiency Change'] = np.diff(df1['Scaled Efficiency'], prepend=np.nan)
+    # ELBOW (KNEE) DETECTION using Kneedle algorithm
+    # -- If kneed is not installed, ask the user to install it
+    try:
+        from kneed import KneeLocator
 
-    optimal_budget_index_g = df1['Efficiency Change'].idxmin()
-    optimal_budget_g = df1.loc[optimal_budget_index_g, 'Budget_LKR']
-    optimal_efficiency_g = df1.loc[optimal_budget_index_g, 'Efficiency']
-    optimal_reach_g = df1.loc[optimal_budget_index_g, '1+ on-target reach']
+        x = df1['Budget_LKR'].values
+        y = df1['1+ on-target reach'].values
+
+        # Kneedle algorithm: curve is concave, increasing
+        kl = KneeLocator(x, y, curve='concave', direction='increasing')
+        knee_budget = kl.knee
+        knee_reach = kl.knee_y
+
+        # Find corresponding efficiency
+        knee_row = df1[df1['Budget_LKR'] == knee_budget]
+        if not knee_row.empty:
+            knee_efficiency = knee_row['Efficiency'].values[0]
+        else:
+            # If exact match not found, take nearest
+            idx = (np.abs(df1['Budget_LKR'] - knee_budget)).argmin()
+            knee_efficiency = df1.iloc[idx]['Efficiency']
+            knee_reach = df1.iloc[idx]['1+ on-target reach']
+            knee_budget = df1.iloc[idx]['Budget_LKR']
+
+        st.success(f"**Google: Optimum Budget (Kneedle/Elbow): {knee_budget:,.2f} LKR**")
+        st.write(f"Google: Efficiency at this point: {knee_efficiency:.2f}")
+
+        opt_x = knee_budget
+        opt_y = knee_reach
+        opt_eff = knee_efficiency
+
+    except ImportError:
+        st.error("The 'kneed' library is required for knee/elbow detection. Please run `pip install kneed` in your environment and reload this app.")
+        opt_x = df1['Budget_LKR'].iloc[0]
+        opt_y = df1['1+ on-target reach'].iloc[0]
+        opt_eff = df1['Efficiency'].iloc[0]
 
     slider_row_g = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
-
-    st.success(f"**Google: Optimal Budget (Change in Efficiency minimum/elbow): {optimal_budget_g:,.2f} LKR**")
-    st.write(f"Google: Efficiency at this point: {optimal_efficiency_g:.2f}")
 
     fig_g = make_subplots(specs=[[{"secondary_y": True}]])
     fig_g.add_trace(go.Scatter(
@@ -226,18 +250,18 @@ if google_file is not None:
             line=dict(color='seagreen', width=3, dash='dash')
         ), secondary_y=True)
     fig_g.add_trace(go.Scatter(
-            x=[optimal_budget_g], y=[optimal_reach_g],
+            x=[opt_x], y=[opt_y],
             mode='markers+text',
             marker=dict(size=14, color='orange', line=dict(width=2, color='black')),
-            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget_g:,.0f}</b>"],
+            text=[f"<b>Optimum<br>Budget:<br>{opt_x:,.0f}</b>"],
             textposition="middle right",
             name='Optimum Point (Reach)'
         ), secondary_y=False)
     fig_g.add_trace(go.Scatter(
-            x=[optimal_budget_g], y=[optimal_efficiency_g],
+            x=[opt_x], y=[opt_eff],
             mode='markers+text',
             marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-            text=[f"<b>Efficiency:<br>{optimal_efficiency_g:.2f}</b>"],
+            text=[f"<b>Efficiency:<br>{opt_eff:.2f}</b>"],
             textposition="bottom left",
             name='Optimum Point (Efficiency)'
         ), secondary_y=True)
