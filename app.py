@@ -56,6 +56,7 @@ with st.sidebar:
     conversion_rate = st.number_input("USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
     google_slider_val = None
     google_df = None
+    min_pct_g, max_pct_g = 0, 100
     if google_file is not None:
         # Try different read_csv strategies
         google_df = None
@@ -63,13 +64,13 @@ with st.sidebar:
         for try_kwargs in [
             {"sep": ",", "skip_blank_lines": True},
             {"sep": None, "engine": "python", "skip_blank_lines": True},
-            {"sep": ",", "skip_blank_lines": True, "skiprows": 1},  # Try skipping 1 line if first line is blank or junk
+            {"sep": ",", "skip_blank_lines": True, "skiprows": 1},
             {"sep": None, "engine": "python", "skip_blank_lines": True, "skiprows": 1}
         ]:
             try:
                 google_df = pd.read_csv(google_file, **try_kwargs)
                 if not google_df.empty and len(google_df.columns) > 1:
-                    break  # Success!
+                    break
             except Exception as e:
                 read_error = e
                 continue
@@ -206,57 +207,65 @@ if google_file is not None and google_df is not None:
     if df1.empty or 'Total Budget' not in df1.columns or '1+ on-target reach' not in df1.columns:
         st.error("Google CSV file is missing required columns or is empty. Please check the file and try again.")
     else:
+        # All budgets shown in LKR
+        df1['Budget_LKR'] = df1['Total Budget'] * conversion_rate
         maximum_reach_google = df1["1+ on-target reach"].max()
         df1['Reach Percentage'] = (df1['1+ on-target reach'] / maximum_reach_google) * 100
 
         df1['Previous Reach %'] = df1['Reach Percentage'].shift(1)
-        df1['Previous Budget'] = df1['Total Budget'].shift(1)
+        df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
         df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) /
-                            (df1['Total Budget'] - df1['Previous Budget'])) * 100
+                            (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
         df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
+
+        # Find the row for the custom reach percentage
+        slider_row_g = None
+        if google_slider_val is not None:
+            slider_row_g = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
 
         try:
             from kneed import KneeLocator
 
-            x = df1['Total Budget'].values
+            x = df1['Budget_LKR'].values
             y = df1['1+ on-target reach'].values
 
             kl = KneeLocator(x, y, curve='concave', direction='increasing')
             optimal_budget = kl.knee
             optimal_reach = kl.knee_y
 
-            eff_idx = (np.abs(df1['Total Budget'] - optimal_budget)).argmin()
+            eff_idx = (np.abs(df1['Budget_LKR'] - optimal_budget)).argmin()
             optimal_efficiency = df1.iloc[eff_idx]['Efficiency']
-            optimal_budget = df1.iloc[eff_idx]['Total Budget']
+            optimal_budget = df1.iloc[eff_idx]['Budget_LKR']
             optimal_reach = df1.iloc[eff_idx]['1+ on-target reach']
 
-            st.success(f"**Google: Optimum Budget (Kneedle/Elbow): {optimal_budget:,.2f} USD**")
+            st.success(f"**Google: Optimum Budget (Kneedle/Elbow): {optimal_budget:,.2f} LKR**")
             st.write(f"Google: Efficiency at this point: {optimal_efficiency:.2f}")
 
         except ImportError:
             st.error("The 'kneed' library is required for knee/elbow detection. Please run `pip install kneed` in your environment and reload this app.")
-            optimal_budget = df1['Total Budget'].iloc[0]
+            optimal_budget = df1['Budget_LKR'].iloc[0]
             optimal_reach = df1['1+ on-target reach'].iloc[0]
             optimal_efficiency = df1['Efficiency'].iloc[0]
 
-        # Plotly visualization
+        # Only show Efficiency from 2nd row onwards
+        eff_mask = df1.index != df1.index.min()
+
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(go.Scatter(
-                x=df1['Total Budget'], y=df1['1+ on-target reach'],
+                x=df1['Budget_LKR'], y=df1['1+ on-target reach'],
                 mode='lines+markers', name='1+ on-target reach',
                 line=dict(color='royalblue', width=3)
             ), secondary_y=False)
         fig.add_trace(go.Scatter(
-                x=df1['Total Budget'], y=df1['Efficiency'],
+                x=df1.loc[eff_mask, 'Budget_LKR'], y=df1.loc[eff_mask, 'Efficiency'],
                 mode='lines+markers', name='Efficiency',
                 line=dict(color='orange', width=3, dash='dash')
             ), secondary_y=True)
-        # Mark optimum point
         fig.add_trace(go.Scatter(
             x=[optimal_budget], y=[optimal_reach],
             mode='markers+text',
             marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget:,.0f}</b>"],
+            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget:,.0f} LKR</b>"],
             textposition="top right",
             name='Optimum Point (Reach)'
         ), secondary_y=False)
@@ -269,9 +278,33 @@ if google_file is not None and google_df is not None:
             name='Optimum Point (Efficiency)'
         ), secondary_y=True)
 
+        # Add custom reach percentage marker & line if selected
+        if slider_row_g is not None:
+            fig.add_vline(
+                x=slider_row_g['Budget_LKR'],
+                line_dash="dot",
+                line_color="purple",
+                annotation_text=f"{google_slider_val}%",
+                annotation_position="top",
+                annotation_font_size=14,
+                annotation_font_color="purple"
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[slider_row_g['Budget_LKR']],
+                    y=[slider_row_g['1+ on-target reach']],
+                    mode='markers+text',
+                    marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
+                    text=[f"{slider_row_g['Reach Percentage']:.1f}%"],
+                    textposition="top center",
+                    name='Selected Reach %'
+                ),
+                secondary_y=False,
+            )
+
         fig.update_layout(
-            title="Google: Total Budget vs 1+ on-target reach and Efficiency",
-            xaxis=dict(title='Total Budget (USD)'),
+            title="",
+            xaxis=dict(title='Budget (LKR)'),
             legend=dict(
                 orientation='h',
                 yanchor='bottom',
