@@ -6,7 +6,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
-st.title("📊 Optimum Budget Detection – Meta & Google Data")
+st.title("📊 Optimum Budget Detection – Meta, Google & TV Data")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
@@ -93,6 +93,16 @@ with st.sidebar:
                 step=1,
                 key="google_slider"
             )
+
+    st.markdown("---")
+
+    st.header("TV Settings")
+    tv_file = st.file_uploader("Upload TV Excel", type=['xlsx'], key="tv_excel")
+    cprp = st.number_input("TV: CPRP (Cost Per Rating Point)", min_value=1000, max_value=100000, value=8000, step=500)
+    acd = st.number_input("TV: ACD (Ad Duration in Seconds)", min_value=5, max_value=120, value=17, step=1)
+    freq_options = [f"{i} +" for i in range(1, 11)]
+    freq_selected = st.selectbox("TV: Select Frequency", options=freq_options, index=0)
+    # The TV: Custom Reach Percentage slider will be set after loading TV data
 
 # --------------- META SECTION ------------------
 st.header("Meta Data")
@@ -328,19 +338,6 @@ Upload your **TV Plan Excel** (`tv.xlsx` with columns like 'GRPs', '1 +', '2 +',
 Set CPRP, ACD, select desired frequency and reach % for analysis.
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-    st.header("TV Settings")
-    tv_file = st.file_uploader("Upload TV Excel", type=['xlsx'], key="tv_excel")
-    cprp = st.number_input("TV: CPRP (Cost Per Rating Point)", min_value=1000, max_value=100000, value=8000, step=500)
-    acd = st.number_input("TV: ACD (Ad Duration in Seconds)", min_value=5, max_value=120, value=17, step=1)
-    freq_options = [f"{i} +" for i in range(1, 11)]
-    freq_selected = st.selectbox("TV: Select Frequency", options=freq_options, index=0)
-    # Placeholder, will update after loading data
-
-# Process only if file uploaded
-if 'tv_file' in locals() or 'tv_file' in globals():
-    pass # Just to avoid "unused variable" lint errors
-
 if tv_file is not None:
     df3 = pd.read_excel(tv_file)
 
@@ -405,9 +402,6 @@ if tv_file is not None:
     st.write(f"TV: Efficiency at this point: {optimal_efficiency_tv:.4f}")
 
     # ----------- TV PLOT (Plotly for consistency) -----------
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-
     fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
     fig_tv.add_trace(go.Scatter(
             x=df3['Budget'], y=df3[freq_selected],
@@ -478,4 +472,3 @@ if tv_file is not None:
     fig_tv.update_yaxes(title_text=f'Reach {freq_selected}', color='blue', secondary_y=False)
     fig_tv.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
     st.plotly_chart(fig_tv, use_container_width=True)
-
