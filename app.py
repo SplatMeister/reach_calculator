@@ -10,6 +10,7 @@ st.title("📊 Optimum Budget Detection – Meta, Google & TV Data")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
+    # Meta Section
     st.header("Meta Analysis Settings")
     meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key="meta_csv")
     meta_df = None
@@ -51,6 +52,7 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # Google Section
     st.header("Google Settings")
     google_file = st.file_uploader("Upload Google CSV", type=['csv'], key="google_csv")
     conversion_rate = st.number_input("USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
@@ -58,7 +60,6 @@ with st.sidebar:
     google_df = None
     min_pct_g, max_pct_g = 0, 100
     if google_file is not None:
-        # Try different read_csv strategies
         google_df = None
         read_error = None
         for try_kwargs in [
@@ -96,12 +97,13 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # TV Section
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV Excel", type=['xlsx'], key="tv_excel")
     cprp = st.number_input("TV: CPRP (Cost Per Rating Point)", min_value=1000, max_value=100000, value=8000, step=500)
     acd = st.number_input("TV: ACD (Ad Duration in Seconds)", min_value=5, max_value=120, value=17, step=1)
-    freq_options = [f"{i} +" for i in range(1, 11)]
-    freq_selected = st.selectbox("TV: Select Frequency", options=freq_options, index=0)
+    freq_display_options = [f"{i} +" for i in range(1, 11)]
+    freq_selected = st.selectbox("TV: Select Frequency", options=freq_display_options, index=0)
     # The TV: Custom Reach Percentage slider will be set after loading TV data
 
 # --------------- META SECTION ------------------
@@ -228,7 +230,6 @@ if google_file is not None and google_df is not None:
                             (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
         df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
-        # Find the row for the custom reach percentage
         slider_row_g = None
         if google_slider_val is not None:
             slider_row_g = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
@@ -341,8 +342,26 @@ Set CPRP, ACD, select desired frequency and reach % for analysis.
 if tv_file is not None:
     df3 = pd.read_excel(tv_file)
 
-    # Ensure frequency column is numeric
-    df3[freq_selected] = pd.to_numeric(df3[freq_selected], errors='coerce')
+    # Clean up DataFrame column names: strip leading/trailing/double spaces
+    df3.columns = [col.strip().replace("  ", " ") for col in df3.columns]
+
+    # Your actual frequency column names, in order:
+    freq_display_options = [f"{i} +" for i in range(1, 11)]
+
+    # Map display option to actual column in DataFrame
+    freq_map = {}
+    for disp in freq_display_options:
+        # Try to find a column that matches after removing all spaces
+        match = [col for col in df3.columns if col.replace(" ", "") == disp.replace(" ", "")]
+        if match:
+            freq_map[disp] = match[0]
+        else:
+            freq_map[disp] = disp  # Fallback
+
+    actual_col = freq_map[freq_selected]
+
+    # Ensure columns are numeric
+    df3[actual_col] = pd.to_numeric(df3[actual_col], errors='coerce')
     df3['GRPs'] = pd.to_numeric(df3['GRPs'], errors='coerce')
 
     # TV Calculation Logic
@@ -351,8 +370,8 @@ if tv_file is not None:
     df3['Budget'] = ((cprp * df3['GRPs']) * acd / 30).round(2)
 
     # Get max reach for selected frequency
-    maximum_reach_tv = df3[freq_selected].max()
-    df3['Reach Percentage'] = (df3[freq_selected] / maximum_reach_tv) * 100
+    maximum_reach_tv = df3[actual_col].max()
+    df3['Reach Percentage'] = (df3[actual_col] / maximum_reach_tv) * 100
 
     # Shift columns for efficiency
     df3['Previous Reach %'] = df3['Reach Percentage'].shift(1)
@@ -381,21 +400,20 @@ if tv_file is not None:
     try:
         from kneed import KneeLocator
         x_tv = df3['Budget'].values
-        y_tv = df3[freq_selected].values
+        y_tv = df3[actual_col].values
 
         kl_tv = KneeLocator(x_tv, y_tv, curve='concave', direction='increasing')
         optimal_budget_tv = kl_tv.knee
         optimal_reach_tv = kl_tv.knee_y
 
-        # Find closest efficiency for annotation
         eff_idx_tv = (np.abs(df3['Budget'] - optimal_budget_tv)).argmin()
         optimal_efficiency_tv = df3.iloc[eff_idx_tv]['Efficiency']
         optimal_budget_tv = df3.iloc[eff_idx_tv]['Budget']
-        optimal_reach_tv = df3.iloc[eff_idx_tv][freq_selected]
+        optimal_reach_tv = df3.iloc[eff_idx_tv][actual_col]
     except ImportError:
         st.error("The 'kneed' library is required for elbow point detection. Please install with `pip install kneed`.")
         optimal_budget_tv = df3['Budget'].iloc[0]
-        optimal_reach_tv = df3[freq_selected].iloc[0]
+        optimal_reach_tv = df3[actual_col].iloc[0]
         optimal_efficiency_tv = df3['Efficiency'].iloc[0]
 
     st.success(f"**TV: Optimum Budget (Kneedle/Elbow): {optimal_budget_tv:,.2f} LKR**")
@@ -404,7 +422,7 @@ if tv_file is not None:
     # ----------- TV PLOT (Plotly for consistency) -----------
     fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
     fig_tv.add_trace(go.Scatter(
-            x=df3['Budget'], y=df3[freq_selected],
+            x=df3['Budget'], y=df3[actual_col],
             mode='lines+markers', name=f'Reach {freq_selected}',
             line=dict(color='blue', width=3)
         ), secondary_y=False)
@@ -444,7 +462,7 @@ if tv_file is not None:
         fig_tv.add_trace(
             go.Scatter(
                 x=[tv_slider_row['Budget']],
-                y=[tv_slider_row[freq_selected]],
+                y=[tv_slider_row[actual_col]],
                 mode='markers+text',
                 marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
                 text=[f"{tv_slider_row['Reach Percentage']:.1f}%"],
