@@ -257,7 +257,7 @@ google_columns = [
 table_html = """
 <table>
     <tr>
-""" + "".join([f'<th style="color:#EB3F43; font-weight:bold; padding:6px 10px; border-bottom:1px solid #eee;">{col}</th>' for col in google_columns]) + """
+""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; padding:6px 10px; border-bottom:1px solid #eee;">{col}</th>' for col in google_columns]) + """
     </tr>
 </table>
 """
@@ -277,6 +277,7 @@ st.markdown("""
 </ul>
 Analysis will use the <b>Total Budget</b> and <b>1+ on-target reach</b> columns for optimum budget detection.
 """, unsafe_allow_html=True)
+
 
 
 
