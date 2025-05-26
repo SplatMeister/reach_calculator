@@ -17,10 +17,10 @@ st.markdown(
 )
 #st.title("Optimum Budget Detection – Meta, Google & TV Data")
 # Main Title
-st.title("📊 Optimum Budget Detection")
+st.title("Optimum Budget Detection")
 
 # Subtitle
-st.markdown("### 🔍 Meta, Google & TV Data")
+st.markdown("###Meta, Google & TV Data")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
