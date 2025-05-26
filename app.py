@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Red_square.svg/64px-Red_square.svg.png")
+st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="🟥")
 # Display the Ogilvy logo from the direct URL (new link)
 st.markdown(
     """
