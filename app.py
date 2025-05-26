@@ -123,10 +123,10 @@ with st.sidebar:
             st.warning(f"Invalid input: '{val}'. Using default value {default}.")
             return default
 
-    cprp_str = st.text_input("TV: CPRP (Cost Per Rating Point)", value="8,000")
-    acd_str = st.text_input("TV: ACD (Ad Duration in Seconds)", value="17")
-    tv_universe_str = st.text_input("TV: Universe (Population)", value="11,440,000")
-    maximum_reach_tv_str = st.text_input("TV: Maximum Reach (Absolute)", value="10,296,000")
+    cprp_str = st.text_input("CPRP (Cost Per Rating Point (LKR))", value="8,000")
+    acd_str = st.text_input("ACD (Average Commercial Duration in Seconds)", value="17")
+    tv_universe_str = st.text_input("Universe (Population)", value="11,440,000")
+    maximum_reach_tv_str = st.text_input("Maximum Reach (Absolute)", value="10,296,000")
 
     cprp = parse_int(cprp_str, 8000)
     acd = parse_int(acd_str, 17)
