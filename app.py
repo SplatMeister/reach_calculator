@@ -97,13 +97,27 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # TV Section
+    # TV Section (comma separated input)
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV Excel/CSV", type=['xlsx', 'csv'], key="tv_file")
-    cprp = st.number_input("TV: CPRP (Cost Per Rating Point)", min_value=1000, max_value=100000, value=8000, step=500)
-    acd = st.number_input("TV: ACD (Ad Duration in Seconds)", min_value=5, max_value=120, value=17, step=1)
-    tv_universe = st.number_input("TV: Universe (Population)", min_value=100_000, max_value=50_000_000, value=11_440_000, step=100_000)
-    maximum_reach_tv = st.number_input("TV: Maximum Reach (Absolute)", min_value=100_000, max_value=50_000_000, value=10_296_000, step=100_000)
+
+    def parse_int(val, default):
+        try:
+            return int(str(val).replace(",", "").replace(" ", ""))
+        except Exception:
+            st.warning(f"Invalid input: '{val}'. Using default value {default}.")
+            return default
+
+    cprp_str = st.text_input("TV: CPRP (Cost Per Rating Point)", value="8,000")
+    acd_str = st.text_input("TV: ACD (Ad Duration in Seconds)", value="17")
+    tv_universe_str = st.text_input("TV: Universe (Population)", value="11,440,000")
+    maximum_reach_tv_str = st.text_input("TV: Maximum Reach (Absolute)", value="10,296,000")
+
+    cprp = parse_int(cprp_str, 8000)
+    acd = parse_int(acd_str, 17)
+    tv_universe = parse_int(tv_universe_str, 11440000)
+    maximum_reach_tv = parse_int(maximum_reach_tv_str, 10296000)
+
     freq_display_options = [f"{i} +" for i in range(1, 11)]
     freq_selected = st.selectbox("TV: Select Frequency", options=freq_display_options, index=0)
 
@@ -330,7 +344,7 @@ if google_file is not None and google_df is not None:
         fig.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
         st.plotly_chart(fig, use_container_width=True)
 
-# --------------- TV SECTION (final, with all user inputs) ------------------
+# --------------- TV SECTION (with comma separated input) ------------------
 st.header("TV Data")
 st.write("""
 Upload your **TV Plan Excel/CSV** (`tv.xlsx` or `.csv` with columns like 'GRPs', '1 +', '2 +', ..., '10 +').<br>
@@ -338,7 +352,6 @@ Columns for frequency must be in percentage (%). All calculations and chart will
 """, unsafe_allow_html=True)
 
 if tv_file is not None:
-    # TV file can be csv or xlsx
     if tv_file.name.endswith('.csv'):
         df3 = pd.read_csv(tv_file)
     else:
@@ -365,7 +378,6 @@ if tv_file is not None:
         df3['CPRP'] = cprp
         df3['ACD'] = acd
         df3['Budget'] = ((cprp * df3['GRPs']) * acd / 30).round(2)
-        # This is the key line: percent of user-input max reach (not max of column)
         df3['Reach Percentage'] = (df3[actual_col] / maximum_reach_tv) * 100
         df3['Previous Reach %'] = df3['Reach Percentage'].shift(1)
         df3['Previous Budget'] = df3['Budget'].shift(1)
