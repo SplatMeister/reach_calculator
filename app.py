@@ -6,6 +6,15 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
+# Display the Ogilvy logo from the direct URL
+st.markdown(
+    """
+    <div style="text-align: center;">
+        <img src="https://pohlmann.design/wp-content/uploads/2022/02/OgilvyTartan-scaled.jpg" width="300">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 #st.title("Optimum Budget Detection – Meta, Google & TV Data")
 # Main Title
 st.title("📊 Optimum Budget Detection")
