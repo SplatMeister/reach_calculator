@@ -56,7 +56,7 @@ with st.sidebar:
                 "Meta: Custom Reach Percentage",
                 min_value=min_pct,
                 max_value=max_pct,
-                value=min(40, max_pct),
+                value=min(70, max_pct),
                 step=1,
                 key="meta_slider"
             )
@@ -105,7 +105,7 @@ with st.sidebar:
                 "Google: Custom Reach Percentage",
                 min_value=min_pct_g,
                 max_value=max_pct_g,
-                value=min(40, max_pct_g),
+                value=min(70, max_pct_g),
                 step=1,
                 key="google_slider"
             )
@@ -482,7 +482,7 @@ if tv_file is not None:
             "TV: Custom Reach Percentage",
             min_value=min_tv_pct,
             max_value=max_tv_pct,
-            value=min(40, max_tv_pct),
+            value=min(70, max_tv_pct),
             step=1,
             key="tv_slider"
         )
