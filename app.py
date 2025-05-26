@@ -99,7 +99,7 @@ with st.sidebar:
 
     # TV Section
     st.header("TV Settings")
-    tv_file = st.file_uploader("Upload TV Excel", type=['xlsx'], key="tv_excel")
+    tv_file = st.file_uploader("Upload TV Excel/CSV", type=['xlsx', 'csv'], key="tv_file")
     cprp = st.number_input("TV: CPRP (Cost Per Rating Point)", min_value=1000, max_value=100000, value=8000, step=500)
     acd = st.number_input("TV: ACD (Ad Duration in Seconds)", min_value=5, max_value=120, value=17, step=1)
     freq_display_options = [f"{i} +" for i in range(1, 11)]
@@ -331,12 +331,16 @@ if google_file is not None and google_df is not None:
 # --------------- TV SECTION ------------------
 st.header("TV Data")
 st.write("""
-Upload your **TV Plan Excel** (`tv.xlsx` with columns like 'GRPs', '1 +', '2 +', ..., '10 +').<br>
+Upload your **TV Plan Excel/CSV** (`tv.xlsx` or `.csv` with columns like 'GRPs', '1 +', '2 +', ..., '10 +').<br>
 Set CPRP, ACD, select desired frequency and reach % for analysis.
 """, unsafe_allow_html=True)
 
 if tv_file is not None:
-    df3 = pd.read_excel(tv_file)
+    # TV file can be csv or xlsx
+    if tv_file.name.endswith('.csv'):
+        df3 = pd.read_csv(tv_file)
+    else:
+        df3 = pd.read_excel(tv_file)
 
     # Clean up DataFrame column names: remove double, leading/trailing spaces
     df3.columns = [col.strip().replace("  ", " ") for col in df3.columns]
@@ -350,7 +354,7 @@ if tv_file is not None:
             break
 
     if actual_col is None:
-        st.error(f"Could not find a frequency column matching '{freq_selected}' in your Excel file. Please check your sheet and column names.")
+        st.error(f"Could not find a frequency column matching '{freq_selected}' in your Excel/CSV file. Please check your sheet and column names.")
     else:
         df3[actual_col] = pd.to_numeric(df3[actual_col], errors='coerce')
         df3['GRPs'] = pd.to_numeric(df3['GRPs'], errors='coerce')
@@ -379,7 +383,6 @@ if tv_file is not None:
 
         tv_slider_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
 
-        # --- Mask: ignore the first row (Efficiency is NaN or 0) ---
         plot_mask = df3.index != df3.index.min()
 
         try:
@@ -481,13 +484,10 @@ summary_rows = []
 
 # ----- Meta summary -----
 if meta_file is not None and meta_selected_col is not None:
-    # Maximum Reach
     meta_max_reach = meta_df[meta_selected_col].max()
-    # Optimum
     meta_opt_row = df.loc[optimal_budget_index]
     meta_opt_reach = meta_opt_row[meta_selected_col]
     meta_opt_budget = meta_opt_row['Budget']
-    # Custom
     meta_custom_row = df[df['Reach Percentage'] >= meta_slider_val].iloc[0] if not df[df['Reach Percentage'] >= meta_slider_val].empty else None
     if meta_custom_row is not None:
         meta_custom_reach = meta_custom_row[meta_selected_col]
@@ -509,10 +509,8 @@ if meta_file is not None and meta_selected_col is not None:
 # ----- Google summary -----
 if google_file is not None and google_df is not None:
     google_max_reach = google_df["1+ on-target reach"].max()
-    # Find the optimum values (already computed)
     google_opt_reach = optimal_reach
     google_opt_budget = optimal_budget
-    # Custom
     google_custom_row = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
     if google_custom_row is not None:
         google_custom_reach = google_custom_row['1+ on-target reach']
@@ -534,10 +532,8 @@ if google_file is not None and google_df is not None:
 # ----- TV summary -----
 if tv_file is not None and 'actual_col' in locals() and actual_col is not None:
     tv_max_reach = df3[actual_col].max()
-    # Optimum
     tv_opt_reach = optimal_reach_tv
     tv_opt_budget = optimal_budget_tv
-    # Custom
     tv_custom_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
     if tv_custom_row is not None:
         tv_custom_reach = tv_custom_row[actual_col]
