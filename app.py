@@ -137,11 +137,26 @@ with st.sidebar:
 
 # --------------- META SECTION ------------------
 st.header("Meta Data")
-st.write("""
-Upload your **Meta Reach Planner CSV** file.<br><br>
-<b>Required Columns (in order):</b><br>
-<code>Reach &nbsp; Budget &nbsp; Impressions &nbsp; CPM &nbsp; Frequency &nbsp; Frequency cap &nbsp; Reservable &nbsp; Reach at 1+ frequency &nbsp; Reach at 2+ frequency &nbsp; Reach at 3+ frequency &nbsp; Reach at 4+ frequency &nbsp; Reach at 5+ frequency &nbsp; Reach at 6+ frequency &nbsp; Reach at 7+ frequency &nbsp; Reach at 8+ frequency &nbsp; Reach at 9+ frequency &nbsp; Reach at 10+ frequency</code>
-<br><br>
+meta_columns = [
+    "Reach", "Budget", "Impressions", "CPM", "Frequency", "Frequency cap", "Reservable",
+    "Reach at 1+ frequency", "Reach at 2+ frequency", "Reach at 3+ frequency", "Reach at 4+ frequency",
+    "Reach at 5+ frequency", "Reach at 6+ frequency", "Reach at 7+ frequency", "Reach at 8+ frequency",
+    "Reach at 9+ frequency", "Reach at 10+ frequency"
+]
+meta_table_html = """
+<table>
+    <tr>
+""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; padding:6px 10px; border-bottom:1px solid #eee;">{col}</th>' for col in meta_columns]) + """
+    </tr>
+</table>
+"""
+
+st.markdown("""
+Upload your **Meta Reach Planner CSV** file.<br>
+<b>Required columns (in order):</b>
+""", unsafe_allow_html=True)
+st.markdown(meta_table_html, unsafe_allow_html=True)
+st.markdown("""
 <ul>
     <li>Frequency columns (<b>Reach at 1+ frequency</b> to <b>Reach at 10+ frequency</b>) must be in <b>absolute numbers</b>.</li>
     <li><b>Budget</b> should be in LKR (or your base currency).</li>
@@ -151,6 +166,7 @@ Upload your **Meta Reach Planner CSV** file.<br><br>
 </ul>
 You can then analyze <b>any</b> “Reach at X+ frequency” column, and visualize optimum budget and custom reach thresholds.
 """, unsafe_allow_html=True)
+
 
 
 if meta_file is not None and meta_selected_col is not None:
@@ -398,11 +414,23 @@ if google_file is not None and google_df is not None:
 
 # --------------- TV SECTION (with comma separated input) ------------------
 st.header("TV Data")
-st.write("""
-Upload your **TV Plan Excel/CSV** file.<br><br>
-<b>Required Columns (in order):</b><br>
-<code>GRPs &nbsp; 1 + &nbsp; 2 + &nbsp; 3 + &nbsp; 4 + &nbsp; 5 + &nbsp; 6 + &nbsp; 7 + &nbsp; 8 + &nbsp; 9 + &nbsp; 10 +</code>
-<br><br>
+tv_columns = [
+    "GRPs", "1 +", "2 +", "3 +", "4 +", "5 +", "6 +", "7 +", "8 +", "9 +", "10 +"
+]
+tv_table_html = """
+<table>
+    <tr>
+""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; padding:6px 10px; border-bottom:1px solid #eee;">{col}</th>' for col in tv_columns]) + """
+    </tr>
+</table>
+"""
+
+st.markdown("""
+Upload your **TV Plan Excel/CSV** file.<br>
+<b>Required columns (in order):</b>
+""", unsafe_allow_html=True)
+st.markdown(tv_table_html, unsafe_allow_html=True)
+st.markdown("""
 <ul>
     <li>Frequency columns (<b>1 +</b> to <b>10 +</b>) must be in <b>percentage (%)</b> format in your file.</li>
     <li>Do <b>not</b> add extra columns or reorder columns.</li>
