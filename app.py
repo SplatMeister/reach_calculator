@@ -6,12 +6,12 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
-st.title("📊 Optimum Budget Detection – Meta, Google & TV Data")
+st.title("Optimum Budget Detection – Meta, Google & TV Data")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
     # Meta Section
-    st.header("Meta Analysis Settings")
+    st.header("Meta Settings")
     meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key="meta_csv")
     meta_df = None
     meta_freq_val = None
