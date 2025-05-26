@@ -251,8 +251,29 @@ if meta_file is not None and meta_selected_col is not None:
 # --------------- GOOGLE SECTION ------------------
 st.header("Google Data")
 st.write("""
-Upload your **Google Reach CSV** (with `"Total Budget"` and `"1+ on-target reach"` columns).
-""")
+Upload your **Google Reach CSV** file.<br>
+<b>Required columns (in order):</b>
+""", unsafe_allow_html=True)
+
+google_columns = [
+    ["Total Budget", "1+ on-target % reach", "1+ on-target reach", "Frequency", 
+     "On-Target Impressions", "Census TRPs", "Views", "Conversions"]
+]
+google_columns_df = pd.DataFrame(google_columns, columns=[f"Col {i+1}" for i in range(len(google_columns[0]))])
+
+st.dataframe(google_columns_df, hide_index=True, use_container_width=True)
+
+st.write("""
+<ul>
+    <li>File must be <b>.csv</b></li>
+    <li><b>Total Budget</b> in your base currency</li>
+    <li><b>1+ on-target reach</b> must be absolute numbers</li>
+    <li>Do <b>not</b> reorder columns or add extra columns</li>
+    <li>Column names must exactly match the above (including spaces and symbols)</li>
+</ul>
+Analysis will use the <b>Total Budget</b> and <b>1+ on-target reach</b> columns for optimum budget detection.
+""", unsafe_allow_html=True)
+
 
 if google_file is not None and google_df is not None:
     df1 = google_df.copy()
