@@ -420,6 +420,9 @@ if tv_file is not None:
         st.write(f"TV: Efficiency at this point: {optimal_efficiency_tv:.4f}")
 
         # ----------- TV PLOT (Plotly for consistency) -----------
+        # Mask: ignore the first row (Efficiency is NaN or 0)
+        plot_mask = df3.index != df3.index.min()
+
         fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
         fig_tv.add_trace(go.Scatter(
                 x=df3['Budget'], y=df3[actual_col],
