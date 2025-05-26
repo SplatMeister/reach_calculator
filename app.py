@@ -297,25 +297,6 @@ Analysis will use the <b>Total Budget</b> and <b>1+ on-target reach</b> columns 
 """, unsafe_allow_html=True)
 
 
-st.markdown("""
-Upload your **Google Reach CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>File must be <b>.csv</b></li>
-    <li><b>Total Budget</b> in your base currency</li>
-    <li><b>1+ on-target reach</b> must be absolute numbers</li>
-    <li>Do <b>not</b> reorder columns or add extra columns</li>
-    <li>Column names must exactly match the above (including spaces and symbols)</li>
-</ul>
-Analysis will use the <b>Total Budget</b> and <b>1+ on-target reach</b> columns for optimum budget detection.
-""", unsafe_allow_html=True)
-
-
-
-
 if google_file is not None and google_df is not None:
     df1 = google_df.copy()
     if df1.empty or 'Total Budget' not in df1.columns or '1+ on-target reach' not in df1.columns:
@@ -439,7 +420,7 @@ tv_columns = [
 tv_table_html = """
 <table>
     <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; padding:6px 10px; border-bottom:1px solid #eee;">{col}</th>' for col in tv_columns]) + """
+""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in tv_columns]) + """
     </tr>
 </table>
 """
@@ -458,6 +439,7 @@ st.markdown("""
 </ul>
 All calculations and charts will use your custom TV universe and max reach inputs below.
 """, unsafe_allow_html=True)
+
 
 
 if tv_file is not None:
