@@ -138,9 +138,20 @@ with st.sidebar:
 # --------------- META SECTION ------------------
 st.header("Meta Data")
 st.write("""
-Upload your **Meta Reach Planner CSV**.<br>
-Analyze *any* "Reach at X+ frequency" column, and visualize optimum budget and custom reach thresholds.
+Upload your **Meta Reach Planner CSV** file.<br><br>
+<b>Required Columns (in order):</b><br>
+<code>Reach &nbsp; Budget &nbsp; Impressions &nbsp; CPM &nbsp; Frequency &nbsp; Frequency cap &nbsp; Reservable &nbsp; Reach at 1+ frequency &nbsp; Reach at 2+ frequency &nbsp; Reach at 3+ frequency &nbsp; Reach at 4+ frequency &nbsp; Reach at 5+ frequency &nbsp; Reach at 6+ frequency &nbsp; Reach at 7+ frequency &nbsp; Reach at 8+ frequency &nbsp; Reach at 9+ frequency &nbsp; Reach at 10+ frequency</code>
+<br><br>
+<ul>
+    <li>Frequency columns (<b>Reach at 1+ frequency</b> to <b>Reach at 10+ frequency</b>) must be in <b>absolute numbers</b>.</li>
+    <li><b>Budget</b> should be in LKR (or your base currency).</li>
+    <li>Do <b>not</b> add extra columns or reorder columns.</li>
+    <li>Column names must exactly match the list above (including spaces and “frequency” for each reach column).</li>
+    <li>Accepted file type: <b>.csv</b></li>
+</ul>
+You can then analyze <b>any</b> “Reach at X+ frequency” column, and visualize optimum budget and custom reach thresholds.
 """, unsafe_allow_html=True)
+
 
 if meta_file is not None and meta_selected_col is not None:
     df = meta_df.copy()
