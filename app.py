@@ -6,7 +6,12 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
-st.title("Optimum Budget Detection – Meta, Google & TV Data")
+#st.title("Optimum Budget Detection – Meta, Google & TV Data")
+# Main Title
+st.title("📊 Optimum Budget Detection")
+
+# Subtitle
+st.markdown("### 🔍 Meta, Google & TV Data")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
