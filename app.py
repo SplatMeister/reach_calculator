@@ -473,3 +473,91 @@ if tv_file is not None:
         fig_tv.update_yaxes(title_text=f'Reach {freq_selected}', color='blue', secondary_y=False)
         fig_tv.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
         st.plotly_chart(fig_tv, use_container_width=True)
+
+# ----------- Summary Table Section -----------
+st.header("Platform Comparison Table")
+
+summary_rows = []
+
+# ----- Meta summary -----
+if meta_file is not None and meta_selected_col is not None:
+    # Maximum Reach
+    meta_max_reach = meta_df[meta_selected_col].max()
+    # Optimum
+    meta_opt_row = df.loc[optimal_budget_index]
+    meta_opt_reach = meta_opt_row[meta_selected_col]
+    meta_opt_budget = meta_opt_row['Budget']
+    # Custom
+    meta_custom_row = df[df['Reach Percentage'] >= meta_slider_val].iloc[0] if not df[df['Reach Percentage'] >= meta_slider_val].empty else None
+    if meta_custom_row is not None:
+        meta_custom_reach = meta_custom_row[meta_selected_col]
+        meta_custom_budget = meta_custom_row['Budget']
+    else:
+        meta_custom_reach = np.nan
+        meta_custom_budget = np.nan
+
+    summary_rows.append({
+        "Platform": "Meta",
+        "Maximum Reach": f"{meta_max_reach:,.0f}",
+        "Optimum Reach": f"{meta_opt_reach:,.0f}",
+        "Optimum Budget (LKR)": f"{meta_opt_budget:,.0f}",
+        "Custom % Reach": f"{meta_slider_val}%",
+        "Reach @ Custom %": f"{meta_custom_reach:,.0f}",
+        "Budget @ Custom % (LKR)": f"{meta_custom_budget:,.0f}"
+    })
+
+# ----- Google summary -----
+if google_file is not None and google_df is not None:
+    google_max_reach = google_df["1+ on-target reach"].max()
+    # Find the optimum values (already computed)
+    google_opt_reach = optimal_reach
+    google_opt_budget = optimal_budget
+    # Custom
+    google_custom_row = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
+    if google_custom_row is not None:
+        google_custom_reach = google_custom_row['1+ on-target reach']
+        google_custom_budget = google_custom_row['Budget_LKR']
+    else:
+        google_custom_reach = np.nan
+        google_custom_budget = np.nan
+
+    summary_rows.append({
+        "Platform": "Google",
+        "Maximum Reach": f"{google_max_reach:,.0f}",
+        "Optimum Reach": f"{google_opt_reach:,.0f}",
+        "Optimum Budget (LKR)": f"{google_opt_budget:,.0f}",
+        "Custom % Reach": f"{google_slider_val}%",
+        "Reach @ Custom %": f"{google_custom_reach:,.0f}",
+        "Budget @ Custom % (LKR)": f"{google_custom_budget:,.0f}"
+    })
+
+# ----- TV summary -----
+if tv_file is not None and 'actual_col' in locals() and actual_col is not None:
+    tv_max_reach = df3[actual_col].max()
+    # Optimum
+    tv_opt_reach = optimal_reach_tv
+    tv_opt_budget = optimal_budget_tv
+    # Custom
+    tv_custom_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
+    if tv_custom_row is not None:
+        tv_custom_reach = tv_custom_row[actual_col]
+        tv_custom_budget = tv_custom_row['Budget']
+    else:
+        tv_custom_reach = np.nan
+        tv_custom_budget = np.nan
+
+    summary_rows.append({
+        "Platform": "TV",
+        "Maximum Reach": f"{tv_max_reach:,.2f}",
+        "Optimum Reach": f"{tv_opt_reach:,.2f}",
+        "Optimum Budget (LKR)": f"{tv_opt_budget:,.0f}",
+        "Custom % Reach": f"{tv_slider_val}%",
+        "Reach @ Custom %": f"{tv_custom_reach:,.2f}",
+        "Budget @ Custom % (LKR)": f"{tv_custom_budget:,.0f}"
+    })
+
+if summary_rows:
+    summary_df = pd.DataFrame(summary_rows)
+    st.dataframe(summary_df, hide_index=True)
+else:
+    st.info("Upload data for at least one platform to see the summary table.")
