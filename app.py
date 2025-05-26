@@ -361,9 +361,19 @@ if google_file is not None and google_df is not None:
 # --------------- TV SECTION (with comma separated input) ------------------
 st.header("TV Data")
 st.write("""
-Upload your **TV Plan Excel/CSV** (`tv.xlsx` or `.csv` with columns like 'GRPs', '1 +', '2 +', ..., '10 +').<br>
-Columns for frequency must be in percentage (%). All calculations and chart will use your input TV universe and max reach.
+Upload your **TV Plan Excel/CSV** file.<br><br>
+<b>Required Columns (in order):</b><br>
+<code>GRPs &nbsp; 1 + &nbsp; 2 + &nbsp; 3 + &nbsp; 4 + &nbsp; 5 + &nbsp; 6 + &nbsp; 7 + &nbsp; 8 + &nbsp; 9 + &nbsp; 10 +</code>
+<br><br>
+<ul>
+    <li>Frequency columns (<b>1 +</b> to <b>10 +</b>) must be in <b>percentage (%)</b> format in your file.</li>
+    <li>Do <b>not</b> add extra columns or reorder columns.</li>
+    <li>Column names must exactly match the list above (including spaces and the <b>+</b> symbol).</li>
+    <li>Accepted file types: <b>.xlsx</b> or <b>.csv</b></li>
+</ul>
+All calculations and charts will use your custom TV universe and max reach inputs below.
 """, unsafe_allow_html=True)
+
 
 if tv_file is not None:
     if tv_file.name.endswith('.csv'):
