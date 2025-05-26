@@ -137,35 +137,25 @@ with st.sidebar:
 
 # --------------- META SECTION ------------------
 st.header("Meta Data")
-meta_columns = [
+meta_columns1 = [
     "Reach", "Budget", "Impressions", "CPM", "Frequency", "Frequency cap", "Reservable",
-    "Reach at 1+ frequency", "Reach at 2+ frequency", "Reach at 3+ frequency", "Reach at 4+ frequency",
-    "Reach at 5+ frequency", "Reach at 6+ frequency", "Reach at 7+ frequency", "Reach at 8+ frequency",
-    "Reach at 9+ frequency", "Reach at 10+ frequency"
+    "Reach at 1+ frequency", "Reach at 2+ frequency", "Reach at 3+ frequency"
+]
+meta_columns2 = [
+    "Reach at 4+ frequency", "Reach at 5+ frequency", "Reach at 6+ frequency", "Reach at 7+ frequency",
+    "Reach at 8+ frequency", "Reach at 9+ frequency", "Reach at 10+ frequency"
 ]
 meta_table_html = """
 <table>
     <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; padding:6px 10px; border-bottom:1px solid #eee;">{col}</th>' for col in meta_columns]) + """
+""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in meta_columns1]) + """
+    </tr>
+    <tr>
+""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in meta_columns2]) + """
     </tr>
 </table>
 """
 
-st.markdown("""
-Upload your **Meta Reach Planner CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(meta_table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>Frequency columns (<b>Reach at 1+ frequency</b> to <b>Reach at 10+ frequency</b>) must be in <b>absolute numbers</b>.</li>
-    <li><b>Budget</b> should be in LKR (or your base currency).</li>
-    <li>Do <b>not</b> add extra columns or reorder columns.</li>
-    <li>Column names must exactly match the list above (including spaces and “frequency” for each reach column).</li>
-    <li>Accepted file type: <b>.csv</b></li>
-</ul>
-You can then analyze <b>any</b> “Reach at X+ frequency” column, and visualize optimum budget and custom reach thresholds.
-""", unsafe_allow_html=True)
 
 
 
