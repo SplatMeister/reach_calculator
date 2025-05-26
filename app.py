@@ -5,7 +5,6 @@ from sklearn.preprocessing import MinMaxScaler
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-st.markdown("## 🚀 Optimum Budget Detection")
 st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
 st.title("Optimum Budget Detection – Meta, Google & TV Data")
 
