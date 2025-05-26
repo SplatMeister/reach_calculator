@@ -342,151 +342,152 @@ Set CPRP, ACD, select desired frequency and reach % for analysis.
 if tv_file is not None:
     df3 = pd.read_excel(tv_file)
 
-    # Clean up DataFrame column names: strip leading/trailing/double spaces
-    df3.columns = [col.strip().replace("  ", " ") for col in df3.columns]
+    # Clean up DataFrame column names: remove all spaces for matching, keep mapping to original names
+    clean_col_map = {col: col.replace(" ", "") for col in df3.columns}
+    inv_clean_col_map = {v: k for k, v in clean_col_map.items()}
+    df3.columns = [col.strip() for col in df3.columns]
 
-    # Your actual frequency column names, in order:
-    freq_display_options = [f"{i} +" for i in range(1, 11)]
+    # User options are e.g. '2 +', so remove all spaces for matching
+    clean_freq_selected = freq_selected.replace(" ", "")
 
-    # Map display option to actual column in DataFrame
-    freq_map = {}
-    for disp in freq_display_options:
-        # Try to find a column that matches after removing all spaces
-        match = [col for col in df3.columns if col.replace(" ", "") == disp.replace(" ", "")]
-        if match:
-            freq_map[disp] = match[0]
-        else:
-            freq_map[disp] = disp  # Fallback
+    # Find the matching actual DataFrame column name
+    actual_col = None
+    for col in df3.columns:
+        if col.replace(" ", "") == clean_freq_selected:
+            actual_col = col
+            break
 
-    actual_col = freq_map[freq_selected]
+    if actual_col is None:
+        st.error(f"Could not find a frequency column matching '{freq_selected}' in your Excel file. Please check your sheet and column names.")
+    else:
+        # Ensure columns are numeric
+        df3[actual_col] = pd.to_numeric(df3[actual_col], errors='coerce')
+        df3['GRPs'] = pd.to_numeric(df3['GRPs'], errors='coerce')
 
-    # Ensure columns are numeric
-    df3[actual_col] = pd.to_numeric(df3[actual_col], errors='coerce')
-    df3['GRPs'] = pd.to_numeric(df3['GRPs'], errors='coerce')
+        # TV Calculation Logic
+        df3['CPRP'] = cprp
+        df3['ACD'] = acd
+        df3['Budget'] = ((cprp * df3['GRPs']) * acd / 30).round(2)
 
-    # TV Calculation Logic
-    df3['CPRP'] = cprp
-    df3['ACD'] = acd
-    df3['Budget'] = ((cprp * df3['GRPs']) * acd / 30).round(2)
+        # Get max reach for selected frequency
+        maximum_reach_tv = df3[actual_col].max()
+        df3['Reach Percentage'] = (df3[actual_col] / maximum_reach_tv) * 100
 
-    # Get max reach for selected frequency
-    maximum_reach_tv = df3[actual_col].max()
-    df3['Reach Percentage'] = (df3[actual_col] / maximum_reach_tv) * 100
+        # Shift columns for efficiency
+        df3['Previous Reach %'] = df3['Reach Percentage'].shift(1)
+        df3['Previous Budget'] = df3['Budget'].shift(1)
 
-    # Shift columns for efficiency
-    df3['Previous Reach %'] = df3['Reach Percentage'].shift(1)
-    df3['Previous Budget'] = df3['Budget'].shift(1)
+        # Efficiency calculation (replace 0 division with NaN)
+        df3['Efficiency'] = ((df3['Reach Percentage'] - df3['Previous Reach %']) /
+                             (df3['Budget'] - df3['Previous Budget'])).replace([np.inf, -np.inf], np.nan).fillna(0) * 100
 
-    # Efficiency calculation (replace 0 division with NaN)
-    df3['Efficiency'] = ((df3['Reach Percentage'] - df3['Previous Reach %']) /
-                         (df3['Budget'] - df3['Previous Budget'])).replace([np.inf, -np.inf], np.nan).fillna(0) * 100
+        # Set up TV reach percentage slider
+        min_tv_pct = int(df3['Reach Percentage'].min())
+        max_tv_pct = int(df3['Reach Percentage'].max())
+        tv_slider_val = st.sidebar.slider(
+            "TV: Custom Reach Percentage",
+            min_value=min_tv_pct,
+            max_value=max_tv_pct,
+            value=min(40, max_tv_pct),
+            step=1,
+            key="tv_slider"
+        )
 
-    # Set up TV reach percentage slider
-    min_tv_pct = int(df3['Reach Percentage'].min())
-    max_tv_pct = int(df3['Reach Percentage'].max())
-    tv_slider_val = st.sidebar.slider(
-        "TV: Custom Reach Percentage",
-        min_value=min_tv_pct,
-        max_value=max_tv_pct,
-        value=min(40, max_tv_pct),
-        step=1,
-        key="tv_slider"
-    )
+        # Find the row for the selected reach %
+        tv_slider_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
 
-    # Find the row for the selected reach %
-    tv_slider_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
+        # Kneedle/Elbow for optimum point (KneeLocator on Budget vs selected frequency reach)
+        try:
+            from kneed import KneeLocator
+            x_tv = df3['Budget'].values
+            y_tv = df3[actual_col].values
 
-    # Kneedle/Elbow for optimum point (KneeLocator on Budget vs selected frequency reach)
-    try:
-        from kneed import KneeLocator
-        x_tv = df3['Budget'].values
-        y_tv = df3[actual_col].values
+            kl_tv = KneeLocator(x_tv, y_tv, curve='concave', direction='increasing')
+            optimal_budget_tv = kl_tv.knee
+            optimal_reach_tv = kl_tv.knee_y
 
-        kl_tv = KneeLocator(x_tv, y_tv, curve='concave', direction='increasing')
-        optimal_budget_tv = kl_tv.knee
-        optimal_reach_tv = kl_tv.knee_y
+            eff_idx_tv = (np.abs(df3['Budget'] - optimal_budget_tv)).argmin()
+            optimal_efficiency_tv = df3.iloc[eff_idx_tv]['Efficiency']
+            optimal_budget_tv = df3.iloc[eff_idx_tv]['Budget']
+            optimal_reach_tv = df3.iloc[eff_idx_tv][actual_col]
+        except ImportError:
+            st.error("The 'kneed' library is required for elbow point detection. Please install with `pip install kneed`.")
+            optimal_budget_tv = df3['Budget'].iloc[0]
+            optimal_reach_tv = df3[actual_col].iloc[0]
+            optimal_efficiency_tv = df3['Efficiency'].iloc[0]
 
-        eff_idx_tv = (np.abs(df3['Budget'] - optimal_budget_tv)).argmin()
-        optimal_efficiency_tv = df3.iloc[eff_idx_tv]['Efficiency']
-        optimal_budget_tv = df3.iloc[eff_idx_tv]['Budget']
-        optimal_reach_tv = df3.iloc[eff_idx_tv][actual_col]
-    except ImportError:
-        st.error("The 'kneed' library is required for elbow point detection. Please install with `pip install kneed`.")
-        optimal_budget_tv = df3['Budget'].iloc[0]
-        optimal_reach_tv = df3[actual_col].iloc[0]
-        optimal_efficiency_tv = df3['Efficiency'].iloc[0]
+        st.success(f"**TV: Optimum Budget (Kneedle/Elbow): {optimal_budget_tv:,.2f} LKR**")
+        st.write(f"TV: Efficiency at this point: {optimal_efficiency_tv:.4f}")
 
-    st.success(f"**TV: Optimum Budget (Kneedle/Elbow): {optimal_budget_tv:,.2f} LKR**")
-    st.write(f"TV: Efficiency at this point: {optimal_efficiency_tv:.4f}")
-
-    # ----------- TV PLOT (Plotly for consistency) -----------
-    fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
-    fig_tv.add_trace(go.Scatter(
-            x=df3['Budget'], y=df3[actual_col],
-            mode='lines+markers', name=f'Reach {freq_selected}',
-            line=dict(color='blue', width=3)
+        # ----------- TV PLOT (Plotly for consistency) -----------
+        fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_tv.add_trace(go.Scatter(
+                x=df3['Budget'], y=df3[actual_col],
+                mode='lines+markers', name=f'Reach {freq_selected}',
+                line=dict(color='blue', width=3)
+            ), secondary_y=False)
+        fig_tv.add_trace(go.Scatter(
+                x=df3['Budget'], y=df3['Efficiency'],
+                mode='lines+markers', name='Efficiency',
+                line=dict(color='orange', width=3, dash='dash')
+            ), secondary_y=True)
+        fig_tv.add_trace(go.Scatter(
+            x=[optimal_budget_tv], y=[optimal_reach_tv],
+            mode='markers+text',
+            marker=dict(size=14, color='red', line=dict(width=2, color='black')),
+            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget_tv:,.0f} LKR</b>"],
+            textposition="top right",
+            name='Optimum Point (Reach)'
         ), secondary_y=False)
-    fig_tv.add_trace(go.Scatter(
-            x=df3['Budget'], y=df3['Efficiency'],
-            mode='lines+markers', name='Efficiency',
-            line=dict(color='orange', width=3, dash='dash')
+        fig_tv.add_trace(go.Scatter(
+            x=[optimal_budget_tv], y=[optimal_efficiency_tv],
+            mode='markers+text',
+            marker=dict(size=14, color='green', line=dict(width=2, color='black')),
+            text=[f"<b>Efficiency:<br>{optimal_efficiency_tv:.2f}</b>"],
+            textposition="bottom left",
+            name='Optimum Point (Efficiency)'
         ), secondary_y=True)
-    fig_tv.add_trace(go.Scatter(
-        x=[optimal_budget_tv], y=[optimal_reach_tv],
-        mode='markers+text',
-        marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-        text=[f"<b>Optimum<br>Budget:<br>{optimal_budget_tv:,.0f} LKR</b>"],
-        textposition="top right",
-        name='Optimum Point (Reach)'
-    ), secondary_y=False)
-    fig_tv.add_trace(go.Scatter(
-        x=[optimal_budget_tv], y=[optimal_efficiency_tv],
-        mode='markers+text',
-        marker=dict(size=14, color='green', line=dict(width=2, color='black')),
-        text=[f"<b>Efficiency:<br>{optimal_efficiency_tv:.2f}</b>"],
-        textposition="bottom left",
-        name='Optimum Point (Efficiency)'
-    ), secondary_y=True)
 
-    # Add custom reach percentage marker & line if selected
-    if tv_slider_row is not None:
-        fig_tv.add_vline(
-            x=tv_slider_row['Budget'],
-            line_dash="dot",
-            line_color="purple",
-            annotation_text=f"{tv_slider_val}%",
-            annotation_position="top",
-            annotation_font_size=14,
-            annotation_font_color="purple"
-        )
-        fig_tv.add_trace(
-            go.Scatter(
-                x=[tv_slider_row['Budget']],
-                y=[tv_slider_row[actual_col]],
-                mode='markers+text',
-                marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
-                text=[f"{tv_slider_row['Reach Percentage']:.1f}%"],
-                textposition="top center",
-                name='Selected Reach %'
+        # Add custom reach percentage marker & line if selected
+        if tv_slider_row is not None:
+            fig_tv.add_vline(
+                x=tv_slider_row['Budget'],
+                line_dash="dot",
+                line_color="purple",
+                annotation_text=f"{tv_slider_val}%",
+                annotation_position="top",
+                annotation_font_size=14,
+                annotation_font_color="purple"
+            )
+            fig_tv.add_trace(
+                go.Scatter(
+                    x=[tv_slider_row['Budget']],
+                    y=[tv_slider_row[actual_col]],
+                    mode='markers+text',
+                    marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
+                    text=[f"{tv_slider_row['Reach Percentage']:.1f}%"],
+                    textposition="top center",
+                    name='Selected Reach %'
+                ),
+                secondary_y=False,
+            )
+
+        fig_tv.update_layout(
+            title="",
+            xaxis=dict(title='Budget (LKR)'),
+            legend=dict(
+                orientation='h',
+                yanchor='bottom',
+                y=1.07,
+                xanchor='center',
+                x=0.5,
+                bgcolor='rgba(0,0,0,0)',
+                font=dict(size=14)
             ),
-            secondary_y=False,
+            template="plotly_white",
+            margin=dict(l=40, r=40, t=100, b=40)
         )
+        fig_tv.update_yaxes(title_text=f'Reach {freq_selected}', color='blue', secondary_y=False)
+        fig_tv.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
+        st.plotly_chart(fig_tv, use_container_width=True)
 
-    fig_tv.update_layout(
-        title="",
-        xaxis=dict(title='Budget (LKR)'),
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.07,
-            xanchor='center',
-            x=0.5,
-            bgcolor='rgba(0,0,0,0)',
-            font=dict(size=14)
-        ),
-        template="plotly_white",
-        margin=dict(l=40, r=40, t=100, b=40)
-    )
-    fig_tv.update_yaxes(title_text=f'Reach {freq_selected}', color='blue', secondary_y=False)
-    fig_tv.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
-    st.plotly_chart(fig_tv, use_container_width=True)
