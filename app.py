@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Budget Optimum Detection", layout="centered")
+st.set_page_config(page_title="Omni-Channel Campaign Planner", layout="centered")
 # Display the Ogilvy logo from the direct URL (new link)
 st.markdown(
     """
