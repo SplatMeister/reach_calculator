@@ -189,7 +189,7 @@ if tv_opts:
     df = tv_opts['df'].copy()
     col, pct = tv_opts['col'], tv_opts['pct']
     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce') / 100 * tv_opts['uni']
-    df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
+    df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
     df['PrevR'] = df[col].shift(1)
     df['PrevB'] = df['Budget'].shift(1)
     df['IncR'] = df[col] - df['PrevR']
