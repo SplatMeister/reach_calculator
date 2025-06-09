@@ -10,7 +10,6 @@ import plotly.graph_objects as go
 # -------------------------------------
 # Streamlit App: Omni-Channel Campaign Planner
 # -------------------------------------
-
 st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="🟥")
 
 # Display Logo
@@ -141,6 +140,7 @@ if meta_opts:
     idx = find_elbow(df, 'Budget', col)
     b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"Meta optimal: {b:,.0f} LKR | Eff: {e:.2f}")
+    # Plot
     max_r = df[col].max()
     custom = df[df[col] / max_r * 100 >= pct].iloc[0] if not df[df[col] / max_r * 100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
@@ -215,7 +215,53 @@ if tv_opts:
 # -------------------------------------
 st.header("Platform Summary")
 if results:
-    df_sum = pd.DataFrame(results, columns=['Platform','Budget','Reach','Efficiency']).set_index('Platform')
-    st.table(df_sum)
+    summary = []
+    # Meta
+    if any(r[0]=='Meta' for r in results):
+        dfm = meta_opts['df']
+        max_r = dfm[meta_opts['col']].max()
+        opt_idx = find_elbow(dfm.assign(Budget=dfm['Budget']), 'Budget', meta_opts['col'])
+        summary.append({
+            'Platform':'Meta',
+            'Maximum Reach':f"{max_r:,.0f}",
+            'Optimum Reach':f"{dfm.at[opt_idx,meta_opts['col']]:,.0f}",
+            'Optimum Budget (LKR)':f"{dfm.at[opt_idx,'Budget']:,.0f}",
+            'Custom Reach':f"{dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].iloc[0][meta_opts['col']]:,.0f}" if not dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].empty else "",
+            'Custom Budget (LKR)':f"{dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].iloc[0]['Budget']:,.0f}" if not dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].empty else ""
+        })
+    # Google
+    if any(r[0]=='Google' for r in results):
+        dfg = google_opts['df'].copy()
+        dfg['Budget']=pd.to_numeric(dfg['Total Budget'].astype(str).str.replace(',',''),errors='coerce')*google_opts['rate']
+        max_r=dfg[google_opts['col']].max()
+        opt_idx=find_elbow(dfg,'Budget',google_opts['col'])
+        cust=dfg[dfg[google_opts['col']]/max_r*100>=google_opts['pct']]
+        summary.append({
+            'Platform':'Google',
+            'Maximum Reach':f"{max_r:,.0f}",
+            'Optimum Reach':f"{dfg.at[opt_idx,google_opts['col']]:,.0f}",
+            'Optimum Budget (LKR)':f"{dfg.at[opt_idx,'Budget']:,.0f}",
+            'Custom Reach':f"{cust.iloc[0][google_opts['col']]:,.0f}" if not cust.empty else "",
+            'Custom Budget (LKR)':f"{cust.iloc[0]['Budget']:,.0f}" if not cust.empty else ""
+        })
+    # TV
+    if any(r[0]=='TV' for r in results):
+        dft=tv_opts['df'].copy()
+        abs_r=pd.to_numeric(dft[tv_opts['col']].astype(str).str.replace(',',''),errors='coerce')/100*tv_opts['uni']
+        dft[tv_opts['col']]=abs_r
+        dft['Budget']=dft['GRPs'].astype(float)*tv_opts['cprp']*tv_opts['acd']/30
+        max_r=abs_r.max()
+        opt_idx=find_elbow(dft,'Budget',tv_opts['col'])
+        cust=dft[dft[tv_opts['col']]/max_r*100>=tv_opts['pct']] if tv_opts['pct'] is not None else pd.DataFrame()
+        summary.append({
+            'Platform':'TV',
+            'Maximum Reach':f"{max_r:,.0f}",
+            'Optimum Reach':f"{dft.at[opt_idx,tv_opts['col']]:,.0f}",
+            'Optimum Budget (LKR)':f"{dft.at[opt_idx,'Budget']:,.0f}",
+            'Custom Reach':f"{cust.iloc[0][tv_opts['col']]:,.0f}" if not cust.empty else "",
+            'Custom Budget (LKR)':f"{cust.iloc[0]['Budget']:,.0f}" if not cust.empty else ""
+        })
+    df_sum=pd.DataFrame(summary).set_index('Platform')
+    st.dataframe(df_sum)
 else:
-    st.info("Upload data and select settings to view results.")
+    st.info("Upload data and select settings to view summary.")
