@@ -122,10 +122,8 @@ def find_elbow(df, budget, reach):
     if len(dy) > 5:
         dy = savgol_filter(dy, 5, 2)
         d2y = savgol_filter(d2y, 5, 2)
-    # curvature formula
     curvature = np.abs(d2y) / (1 + dy**2)**1.5
-    idx = int(np.nanargmax(curvature))
-    return idx
+    return int(np.nanargmax(curvature))
 
 results = []
 
@@ -134,17 +132,17 @@ results = []
 # -------------------------------------
 if meta_opts:
     df = meta_opts['df'].copy()
-    col = meta_opts['col']; pct = meta_opts['pct']
+    col, pct = meta_opts['col'], meta_opts['pct']
     df['PrevR'] = df[col].shift(1)
     df['PrevB'] = df['Budget'].shift(1)
     df['IncR'] = df[col] - df['PrevR']
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx = find_elbow(df, 'Budget', col)
-    b, r, e = df.at[idx,'Budget'], df.at[idx,col], df.at[idx,'Eff']
+    b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"Meta optimal: {b:,.0f} LKR | Eff: {e:.2f}")
     max_r = df[col].max()
-    custom = df[df[col]/max_r*100 >= pct].iloc[0] if not df[df[col]/max_r*100 >= pct].empty else None
+    custom = df[df[col] / max_r * 100 >= pct].iloc[0] if not df[df[col] / max_r * 100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Meta Reach', line=dict(color='#EB3F43')), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Meta Efficiency', line=dict(color='#F58E8F', dash='dash')), secondary_y=True)
@@ -160,7 +158,7 @@ if meta_opts:
 # -------------------------------------
 if google_opts:
     df = google_opts['df'].copy()
-    col = google_opts['col']; pct = google_opts['pct']
+    col, pct = google_opts['col'], google_opts['pct']
     df['Total Budget'] = pd.to_numeric(df['Total Budget'].astype(str).str.replace(',',''), errors='coerce')
     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce')
     df['Budget'] = df['Total Budget'] * google_opts['rate']
@@ -170,10 +168,10 @@ if google_opts:
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx = find_elbow(df, 'Budget', col)
-    b, r, e = df.at[idx,'Budget'], df.at[idx,col], df.at[idx,'Eff']
+    b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"Google optimal: {b:,.0f} LKR | Eff: {e:.2f}")
     max_r = df[col].max()
-    custom = df[df[col]/max_r*100 >= pct].iloc[0] if not df[df[col]/max_r*100 >= pct].empty else None
+    custom = df[df[col] / max_r * 100 >= pct].iloc[0] if not df[df[col] / max_r * 100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Google Reach', line=dict(color='#EB3F43')), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Google Efficiency', line=dict(color='#F58E8F', dash='dash')), secondary_y=True)
@@ -189,19 +187,19 @@ if google_opts:
 # -------------------------------------
 if tv_opts:
     df = tv_opts['df'].copy()
-    col = tv_opts['col']; pct = tv_opts['pct']
+    col, pct = tv_opts['col'], tv_opts['pct']
     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce') / 100 * tv_opts['uni']
-    df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
+    df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
     df['PrevR'] = df[col].shift(1)
     df['PrevB'] = df['Budget'].shift(1)
     df['IncR'] = df[col] - df['PrevR']
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx = find_elbow(df, 'Budget', col)
-    b, r, e = df.at[idx,'Budget'], df.at[idx,col'], df.at[idx,'Eff']
+    b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"TV optimal: {b:,.0f} LKR | Eff: {e:.2f}")
     max_r = df[col].max()
-    custom = df[df[col]/max_r*100 >= pct].iloc[0] if pct is not None and not df[df[col]/max_r*100 >= pct].empty else None
+    custom = df[df[col] / max_r * 100 >= pct].iloc[0] if pct is not None and not df[df[col] / max_r * 100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='TV Reach', line=dict(color='#EB3F43')), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='TV Efficiency', line=dict(color='#F58E8F', dash='dash')), secondary_y=True)
