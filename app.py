@@ -5,8 +5,15 @@ from sklearn.preprocessing import MinMaxScaler
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="🟥")
-# Display the Ogilvy logo from the direct URL (new link)
+# -------------------------------------
+# Streamlit App: Omni-Channel Campaign Planner
+# -------------------------------------
+
+st.set_page_config(
+    page_title="Ogilvy Planner", layout="centered", page_icon="🟥"
+)
+
+# Logo
 st.markdown(
     """
     <div style="text-align: center;">
@@ -16,16 +23,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-#st.title("Optimum Budget Detection – Meta, Google & TV Data")
-# Main Title
+# Titles
 st.title("Omni-Channel Campaign Planner")
-
-# Subtitle
 st.markdown("Meta, Google & TV Data")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
-    # Meta Section
+    # ----- Meta Section -----
     st.header("Meta Settings")
     meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key="meta_csv")
     meta_df = None
@@ -37,28 +41,21 @@ with st.sidebar:
         meta_df = pd.read_csv(meta_file)
         meta_reach_cols = [col for col in meta_df.columns if col.startswith('Reach at ') and col.endswith('frequency')]
         if meta_reach_cols:
-            freq_options = sorted([(int(col.split(' ')[2][0]), col) for col in meta_reach_cols], key=lambda x: x[0])
+            # slider for frequency
             meta_freq_val = st.slider(
                 "Meta: Select Frequency (Reach at X+)",
-                min_value=1,
-                max_value=10,
-                value=1,
-                step=1,
-                key="meta_freq"
+                min_value=1, max_value=10, value=1, step=1, key="meta_freq"
             )
             meta_selected_col = f"Reach at {meta_freq_val}+ frequency"
             if meta_selected_col not in meta_df.columns:
-                meta_selected_col = freq_options[0][1]
-            temp_max_reach = meta_df[meta_selected_col].max()
-            min_pct = int((meta_df[meta_selected_col] / temp_max_reach * 100).min())
-            max_pct = int((meta_df[meta_selected_col] / temp_max_reach * 100).max())
+                meta_selected_col = meta_reach_cols[0]
+            # compute percentage range
+            temp_max = meta_df[meta_selected_col].max()
+            min_pct = int((meta_df[meta_selected_col] / temp_max * 100).min())
+            max_pct = int((meta_df[meta_selected_col] / temp_max * 100).max())
             meta_slider_val = st.slider(
-                "Meta: Custom Reach Percentage",
-                min_value=min_pct,
-                max_value=max_pct,
-                value=min(70, max_pct),
-                step=1,
-                key="meta_slider"
+                "Meta: Custom Reach Percentage", min_value=min_pct,
+                max_value=max_pct, value=min(70, max_pct), step=1, key="meta_slider"
             )
         else:
             meta_selected_col = None
@@ -67,60 +64,71 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Google Section
+    # ----- Google Section (modified) -----
     st.header("Google Settings")
     google_file = st.file_uploader("Upload Google CSV or Excel", type=['csv', 'xlsx'], key="google_csv")
-    conversion_rate = st.number_input("USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
-    google_slider_val = None
+    conversion_rate = st.number_input(
+        "USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0
+    )
     google_df = None
-    min_pct_g, max_pct_g = 0, 100
+    google_freq_val = None
+    google_selected_col = None
+    google_slider_val = None
+
     if google_file is not None:
-        google_df = None
-        read_error = None
-        for try_kwargs in [
-            {"sep": ",", "skip_blank_lines": True},
-            {"sep": None, "engine": "python", "skip_blank_lines": True},
-            {"sep": ",", "skip_blank_lines": True, "skiprows": 1},
-            {"sep": None, "engine": "python", "skip_blank_lines": True, "skiprows": 1}
-        ]:
-            try:
-                google_df = pd.read_csv(google_file, **try_kwargs)
-                if not google_df.empty and len(google_df.columns) > 1:
-                    break
-            except Exception as e:
-                read_error = e
-                continue
-        if google_df is None or google_df.empty or len(google_df.columns) < 2:
-            st.error(f"Could not read your Google CSV file. Please check the format. Details: {read_error}")
-            google_df = None
-        else:
-            google_df = google_df.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(',', '').str.strip(), errors='coerce'))
-            google_df = google_df.dropna(subset=['Total Budget', '1+ on-target reach'])
-            google_df['Budget_LKR'] = google_df['Total Budget'] * conversion_rate
-            maximum_reach_google = google_df["1+ on-target reach"].max()
-            google_df['Reach Percentage'] = (google_df['1+ on-target reach'] / maximum_reach_google) * 100
-            min_pct_g = int(google_df['Reach Percentage'].min())
-            max_pct_g = int(google_df['Reach Percentage'].max())
-            google_slider_val = st.slider(
-                "Google: Custom Reach Percentage",
-                min_value=min_pct_g,
-                max_value=max_pct_g,
-                value=min(70, max_pct_g),
-                step=1,
-                key="google_slider"
+        # try reading
+        try:
+            if google_file.name.endswith('.xlsx'):
+                google_df = pd.read_excel(google_file)
+            else:
+                google_df = pd.read_csv(google_file)
+        except Exception as e:
+            st.error(f"Failed to read file: {e}")
+        # process if read
+        if google_df is not None:
+            # ensure numeric
+            google_df = google_df.apply(
+                lambda col: pd.to_numeric(
+                    col.astype(str).str.replace(',', '').str.strip(), errors='coerce'
+                )
             )
+            # detect reach columns
+            reach_cols = [c for c in google_df.columns if c.strip().endswith('on-target reach')]
+            if reach_cols:
+                # parse frequencies
+                freqs = sorted(int(c.split('+')[0]) for c in reach_cols)
+                google_freq_val = st.slider(
+                    "Google: Select Frequency (X+ on-target reach)",
+                    min_value=freqs[0], max_value=freqs[-1], value=freqs[0], step=1,
+                    key="google_freq"
+                )
+                google_selected_col = f"{google_freq_val}+ on-target reach"
+                if google_selected_col not in google_df.columns:
+                    google_selected_col = reach_cols[0]
+                # percentage range
+                max_reach = google_df[google_selected_col].max()
+                google_df['Reach Percentage'] = google_df[google_selected_col] / max_reach * 100
+                min_pct = int(google_df['Reach Percentage'].min())
+                max_pct = int(google_df['Reach Percentage'].max())
+                google_slider_val = st.slider(
+                    "Google: Custom Reach Percentage", min_value=min_pct,
+                    max_value=max_pct, value=min(70, max_pct), step=1,
+                    key="google_slider"
+                )
+            else:
+                st.error("No columns matching 'X+ on-target reach'. Check your sheet.")
 
     st.markdown("---")
 
-    # TV Section (comma separated input)
+    # ----- TV Section -----
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV Excel/CSV", type=['xlsx', 'csv'], key="tv_file")
 
     def parse_int(val, default):
         try:
             return int(str(val).replace(",", "").replace(" ", ""))
-        except Exception:
-            st.warning(f"Invalid input: '{val}'. Using default value {default}.")
+        except:
+            st.warning(f"Invalid input: '{val}'. Using default {default}.")
             return default
 
     cprp_str = st.text_input("CPRP (Cost Per Rating Point (LKR))", value="8,000")
@@ -133,533 +141,197 @@ with st.sidebar:
     tv_universe = parse_int(tv_universe_str, 11440000)
     maximum_reach_tv = parse_int(maximum_reach_tv_str, 10296000)
 
-    freq_display_options = [f"{i} +" for i in range(1, 11)]
-    freq_selected = st.selectbox("TV: Select Frequency", options=freq_display_options, index=0)
+    freq_display = [f"{i} +" for i in range(1, 11)]
+    freq_selected = st.selectbox("TV: Select Frequency", options=freq_display, index=0)
 
 # --------------- META SECTION ------------------
 st.header("Meta Data")
-meta_columns = [
-    "Reach", "Budget", "Impressions", "CPM", "Frequency", "Frequency cap", "Reservable",
-    "Reach at 1+ frequency", "Reach at 2+ frequency", "Reach at 3+ frequency", "Reach at 4+ frequency",
-    "Reach at 5+ frequency", "Reach at 6+ frequency", "Reach at 7+ frequency", "Reach at 8+ frequency",
-    "Reach at 9+ frequency", "Reach at 10+ frequency"
-]
-meta_table_html = """
-<table>
-    <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in meta_columns]) + """
-    </tr>
-</table>
-"""
-
-st.markdown("""
-Upload your **Meta Reach Planner CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(meta_table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>File must be <b>.csv</b></li>
-    <li>Frequency columns (<b>Reach at 1+ frequency</b> to <b>Reach at 10+ frequency</b>) must be in <b>absolute numbers</b>.</li>
-    <li><b>Budget</b> should be in LKR (or your base currency).</li>
-    <li>Do <b>not</b> add extra columns or reorder columns.</li>
-    <li>Column names must exactly match the above (including spaces and "frequency").</li>
-</ul>
-You can then analyze <b>any</b> “Reach at X+ frequency” column, and visualize optimum budget and custom reach thresholds.
-""", unsafe_allow_html=True)
-
-
-
-
-
-if meta_file is not None and meta_selected_col is not None:
+if meta_file and meta_selected_col:
     df = meta_df.copy()
-    maximum_reach = df[meta_selected_col].max()
-    df['Reach Percentage'] = (df[meta_selected_col] / maximum_reach) * 100
+    max_reach = df[meta_selected_col].max()
+    df['Reach Percentage'] = df[meta_selected_col] / max_reach * 100
     df['Previous Reach %'] = df['Reach Percentage'].shift(1)
     df['Previous Budget'] = df['Budget'].shift(1)
-    df['Efficiency'] = ((df['Reach Percentage'] / df['Previous Reach %']) /
-                        (df['Budget'] / df['Previous Budget'])) * 100
+    df['Efficiency'] = (
+        (df['Reach Percentage'] / df['Previous Reach %']) /
+        (df['Budget'] / df['Previous Budget'])
+    ) * 100
     df['Efficiency'] = df['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(method='bfill')
 
     scaler = MinMaxScaler()
-    df['Scaled Budget'] = scaler.fit_transform(df[['Budget']])
     df['Scaled Efficiency'] = scaler.fit_transform(df[['Efficiency']])
     df['Efficiency Change'] = np.diff(df['Scaled Efficiency'], prepend=np.nan)
 
-    optimal_budget_index = df['Efficiency Change'].idxmin()
-    optimal_budget = df.loc[optimal_budget_index, 'Budget']
-    optimal_efficiency = df.loc[optimal_budget_index, 'Efficiency']
-    optimal_reach = df.loc[optimal_budget_index, meta_selected_col]
+    opt_idx = df['Efficiency Change'].idxmin()
+    opt_budget = df.loc[opt_idx, 'Budget']
+    opt_eff = df.loc[opt_idx, 'Efficiency']
+    opt_reach = df.loc[opt_idx, meta_selected_col]
 
-    st.success(f"**Meta: Optimal Budget (Change in Efficiency minimum/elbow): {optimal_budget:,.2f} LKR**")
-    st.write(f"Meta: Efficiency at this point: {optimal_efficiency:.2f}")
+    st.success(f"**Meta: Optimal Budget (elbow): {opt_budget:,.2f} LKR**")
+    st.write(f"Efficiency at this point: {opt_eff:.2f}")
 
-    slider_row = df[df['Reach Percentage'] >= meta_slider_val].iloc[0] if not df[df['Reach Percentage'] >= meta_slider_val].empty else None
+    sel_row = df[df['Reach Percentage'] >= meta_slider_val].iloc[0] if meta_slider_val else None
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(go.Scatter(
-            x=df['Budget'], y=df[meta_selected_col],
-            mode='lines', name=meta_selected_col,
-            line=dict(color='royalblue', width=3)
-        ), secondary_y=False)
-    fig.add_trace(go.Scatter(
-            x=df['Budget'], y=df['Efficiency'],
-            mode='lines', name='Efficiency',
-            line=dict(color='seagreen', width=3, dash='dash')
-        ), secondary_y=True)
-    fig.add_trace(go.Scatter(
-            x=[optimal_budget], y=[optimal_reach],
-            mode='markers+text',
-            marker=dict(size=14, color='orange', line=dict(width=2, color='black')),
-            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget:,.0f}</b>"],
-            textposition="middle right",
-            name='Optimum Point (Reach)'
-        ), secondary_y=False)
-    fig.add_trace(go.Scatter(
-            x=[optimal_budget], y=[optimal_efficiency],
-            mode='markers+text',
-            marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-            text=[f"<b>Efficiency:<br>{optimal_efficiency:.2f}</b>"],
-            textposition="bottom left",
-            name='Optimum Point (Efficiency)'
-        ), secondary_y=True)
-
-    if slider_row is not None:
-        fig.add_vline(
-            x=slider_row['Budget'],
-            line_dash="dot",
-            line_color="purple",
-            annotation_text=f"{meta_slider_val}%",
-            annotation_position="top",
-            annotation_font_size=14,
-            annotation_font_color="purple"
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=[slider_row['Budget']],
-                y=[slider_row[meta_selected_col]],
-                mode='markers+text',
-                marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
-                text=[f"{slider_row['Reach Percentage']:.1f}%"],
-                textposition="top center",
-                name='Selected Reach %'
-            ),
-            secondary_y=False,
-        )
-
-    fig.update_layout(
-        title="",
-        xaxis=dict(title='Budget (LKR)'),
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.07,
-            xanchor='center',
-            x=0.5,
-            bgcolor='rgba(0,0,0,0)',
-            font=dict(size=14)
-        ),
-        template="plotly_white",
-        margin=dict(l=40, r=40, t=100, b=40)
-    )
-    fig.update_yaxes(title_text=meta_selected_col, color='royalblue', secondary_y=False)
-    fig.update_yaxes(title_text='Efficiency', color='seagreen', secondary_y=True)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[meta_selected_col], mode='lines', name=meta_selected_col), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Efficiency'], mode='lines', name='Efficiency', line=dict(dash='dash')), secondary_y=True)
+    fig.add_trace(go.Scatter(x=[opt_budget], y=[opt_reach], mode='markers+text', marker=dict(size=14, color='orange'), text=[f"Optimum Budget:\n{opt_budget:,.0f}"], textposition='middle right'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=[opt_budget], y=[opt_eff], mode='markers+text', marker=dict(size=14, color='red'), text=[f"Eff:{opt_eff:.1f}%"], textposition='bottom left'), secondary_y=True)
+    if sel_row is not None:
+        fig.add_vline(x=sel_row['Budget'], line_dash='dot', annotation_text=f"{meta_slider_val}%", annotation_position='top')
+        fig.add_trace(go.Scatter(x=[sel_row['Budget']], y=[sel_row[meta_selected_col]], mode='markers+text', marker=dict(size=12, color='purple'), text=[f"{sel_row['Reach Percentage']:.1f}%"], textposition='top center'), secondary_y=False)
+    fig.update_xaxes(title='Budget (LKR)')
+    fig.update_yaxes(title=meta_selected_col, secondary_y=False)
+    fig.update_yaxes(title='Efficiency', secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)
 
 # --------------- GOOGLE SECTION ------------------
 st.header("Google Data")
-google_columns = [
-    "Total Budget", "1+ on-target % reach", "1+ on-target reach", "Frequency",
-    "On-Target Impressions", "Census TRPs", "Views", "Conversions"
-]
-table_html = """
-<table>
-    <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in google_columns]) + """
-    </tr>
-</table>
-"""
-
-st.markdown("""
-Upload your **Google Reach CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>File must be <b>.csv</b></li>
-    <li><b>Total Budget</b> in your base currency</li>
-    <li><b>1+ on-target reach</b> must be absolute numbers</li>
-    <li>Do <b>not</b> reorder columns or add extra columns</li>
-    <li>Column names must exactly match the above (including spaces and symbols)</li>
-</ul>
-Analysis will use the <b>Total Budget</b> and <b>1+ on-target reach</b> columns for optimum budget detection.
-""", unsafe_allow_html=True)
-
-
-if google_file is not None and google_df is not None:
+if google_file and isinstance(google_df, pd.DataFrame) and google_selected_col:
     df1 = google_df.copy()
-    if df1.empty or 'Total Budget' not in df1.columns or '1+ on-target reach' not in df1.columns:
-        st.error("Google CSV file is missing required columns or is empty. Please check the file and try again.")
+    if 'Total Budget' not in df1.columns or google_selected_col not in df1.columns:
+        st.error("Required columns missing.")
     else:
         df1['Budget_LKR'] = df1['Total Budget'] * conversion_rate
-        maximum_reach_google = df1["1+ on-target reach"].max()
-        df1['Reach Percentage'] = (df1['1+ on-target reach'] / maximum_reach_google) * 100
-
+        max_reach_g = df1[google_selected_col].max()
+        df1['Reach Percentage'] = df1[google_selected_col] / max_reach_g * 100
         df1['Previous Reach %'] = df1['Reach Percentage'].shift(1)
         df1['Previous Budget_LKR'] = df1['Budget_LKR'].shift(1)
-        df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) /
-                            (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
+        df1['Efficiency'] = ((df1['Reach Percentage'] - df1['Previous Reach %']) / (df1['Budget_LKR'] - df1['Previous Budget_LKR'])) * 100
         df1['Efficiency'] = df1['Efficiency'].replace([np.inf, -np.inf], np.nan).fillna(0)
 
-        slider_row_g = None
+        # custom slider row
+        sel_g = None
         if google_slider_val is not None:
-            slider_row_g = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
+            cond = df1['Reach Percentage'] >= google_slider_val
+            sel_g = df1[cond].iloc[0] if cond.any() else None
 
+        # elbow detect
         try:
             from kneed import KneeLocator
-
             x = df1['Budget_LKR'].values
-            y = df1['1+ on-target reach'].values
-
+            y = df1[google_selected_col].values
             kl = KneeLocator(x, y, curve='concave', direction='increasing')
-            optimal_budget = kl.knee
-            optimal_reach = kl.knee_y
-
-            eff_idx = (np.abs(df1['Budget_LKR'] - optimal_budget)).argmin()
-            optimal_efficiency = df1.iloc[eff_idx]['Efficiency']
-            optimal_budget = df1.iloc[eff_idx]['Budget_LKR']
-            optimal_reach = df1.iloc[eff_idx]['1+ on-target reach']
-
-            st.success(f"**Google: Optimum Budget (Kneedle/Elbow): {optimal_budget:,.2f} LKR**")
-            st.write(f"Google: Efficiency at this point: {optimal_efficiency:.2f}")
-
+            knee = kl.knee
+            idx = (np.abs(df1['Budget_LKR'] - knee)).argmin()
+            opt_b = df1.iloc[idx]['Budget_LKR']
+            opt_r = df1.iloc[idx][google_selected_col]
+            opt_e = df1.iloc[idx]['Efficiency']
+            st.success(f"**Google: Optimum Budget ({google_freq_val}+): {opt_b:,.2f} LKR**")
+            st.write(f"Efficiency at this point: {opt_e:.2f}")
         except ImportError:
-            st.error("The 'kneed' library is required for knee/elbow detection. Please run `pip install kneed` in your environment and reload this app.")
-            optimal_budget = df1['Budget_LKR'].iloc[0]
-            optimal_reach = df1['1+ on-target reach'].iloc[0]
-            optimal_efficiency = df1['Efficiency'].iloc[0]
+            st.error("Install kneed: pip install kneed")
+            opt_b = df1['Budget_LKR'].iloc[0]
+            opt_r = df1[google_selected_col].iloc[0]
+            opt_e = df1['Efficiency'].iloc[0]
 
-        eff_mask = df1.index != df1.index.min()
+        mask = df1.index != df1.index.min()
+        fig1 = make_subplots(specs=[[{"secondary_y": True}]])
+        fig1.add_trace(go.Scatter(x=df1.loc[mask,'Budget_LKR'], y=df1.loc[mask,google_selected_col], mode='lines+markers', name=f"{google_freq_val}+ reach"), secondary_y=False)
+        fig1.add_trace(go.Scatter(x=df1.loc[mask,'Budget_LKR'], y=df1.loc[mask,'Efficiency'], mode='lines+markers', name='Efficiency', line=dict(dash='dash')), secondary_y=True)
+        fig1.add_trace(go.Scatter(x=[opt_b], y=[opt_r], mode='markers+text', marker=dict(size=12,color='red'), text=[f"Opt Budget:\n{opt_b:,.0f}"], textposition='top right'), secondary_y=False)
+        fig1.add_trace(go.Scatter(x=[opt_b], y=[opt_e], mode='markers+text', marker=dict(size=12,color='green'), text=[f"Eff:{opt_e:.1f}%"], textposition='bottom left'), secondary_y=True)
+        if sel_g is not None:
+            fig1.add_vline(x=sel_g['Budget_LKR'], line_dash='dot', annotation_text=f"{google_slider_val}%", annotation_position='top')
+            fig1.add_trace(go.Scatter(x=[sel_g['Budget_LKR']], y=[sel_g[google_selected_col]], mode='markers+text', marker=dict(size=10,color='purple'), text=[f"{sel_g['Reach Percentage']:.1f}%"], textposition='top center'), secondary_y=False)
+        fig1.update_xaxes(title='Budget (LKR)')
+        fig1.update_yaxes(title=f"{google_freq_val}+ on-target reach", secondary_y=False)
+        fig1.update_yaxes(title='Efficiency (%)', secondary_y=True)
+        st.plotly_chart(fig1, use_container_width=True)
 
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(go.Scatter(
-                x=df1.loc[eff_mask, 'Budget_LKR'], y=df1.loc[eff_mask, '1+ on-target reach'],
-                mode='lines+markers', name='1+ on-target reach',
-                line=dict(color='royalblue', width=3)
-            ), secondary_y=False)
-        fig.add_trace(go.Scatter(
-                x=df1.loc[eff_mask, 'Budget_LKR'], y=df1.loc[eff_mask, 'Efficiency'],
-                mode='lines+markers', name='Efficiency',
-                line=dict(color='orange', width=3, dash='dash')
-            ), secondary_y=True)
-        fig.add_trace(go.Scatter(
-            x=[optimal_budget], y=[optimal_reach],
-            mode='markers+text',
-            marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget:,.0f} LKR</b>"],
-            textposition="top right",
-            name='Optimum Point (Reach)'
-        ), secondary_y=False)
-        fig.add_trace(go.Scatter(
-            x=[optimal_budget], y=[optimal_efficiency],
-            mode='markers+text',
-            marker=dict(size=14, color='green', line=dict(width=2, color='black')),
-            text=[f"<b>Efficiency:<br>{optimal_efficiency:.2f}</b>"],
-            textposition="bottom left",
-            name='Optimum Point (Efficiency)'
-        ), secondary_y=True)
-
-        if slider_row_g is not None:
-            fig.add_vline(
-                x=slider_row_g['Budget_LKR'],
-                line_dash="dot",
-                line_color="purple",
-                annotation_text=f"{google_slider_val}%",
-                annotation_position="top",
-                annotation_font_size=14,
-                annotation_font_color="purple"
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=[slider_row_g['Budget_LKR']],
-                    y=[slider_row_g['1+ on-target reach']],
-                    mode='markers+text',
-                    marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
-                    text=[f"{slider_row_g['Reach Percentage']:.1f}%"],
-                    textposition="top center",
-                    name='Selected Reach %'
-                ),
-                secondary_y=False,
-            )
-
-        fig.update_layout(
-            title="",
-            xaxis=dict(title='Budget (LKR)'),
-            legend=dict(
-                orientation='h',
-                yanchor='bottom',
-                y=1.07,
-                xanchor='center',
-                x=0.5,
-                bgcolor='rgba(0,0,0,0)',
-                font=dict(size=14)
-            ),
-            template="plotly_white",
-            margin=dict(l=40, r=40, t=100, b=40)
-        )
-        fig.update_yaxes(title_text="1+ on-target reach", color='royalblue', secondary_y=False)
-        fig.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
-        st.plotly_chart(fig, use_container_width=True)
-
-# --------------- TV SECTION (with comma separated input) ------------------
+# --------------- TV SECTION ------------------
 st.header("TV Data")
-tv_columns = [
-    "GRPs", "1 +", "2 +", "3 +", "4 +", "5 +", "6 +", "7 +", "8 +", "9 +", "10 +"
-]
-tv_table_html = """
-<table>
-    <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in tv_columns]) + """
-    </tr>
-</table>
-"""
-
-st.markdown("""
-Upload your **TV Plan Excel/CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(tv_table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>Frequency columns (<b>1 +</b> to <b>10 +</b>) must be in <b>percentage (%)</b> format in your file.</li>
-    <li>Do <b>not</b> add extra columns or reorder columns.</li>
-    <li>Column names must exactly match the list above (including spaces and the <b>+</b> symbol).</li>
-    <li>Accepted file types: <b>.xlsx</b> or <b>.csv</b></li>
-</ul>
-All calculations and charts will use your custom TV universe and max reach inputs below.
-""", unsafe_allow_html=True)
-
-
-
-if tv_file is not None:
+if tv_file:
     if tv_file.name.endswith('.csv'):
         df3 = pd.read_csv(tv_file)
     else:
         df3 = pd.read_excel(tv_file)
-
-    df3.columns = [col.strip().replace("  ", " ") for col in df3.columns]
-    frequency_cols = [f"{i} +" for i in range(1, 11)]
-    for col in frequency_cols:
+    df3.columns = [c.strip() for c in df3.columns]
+    freq_cols = [f"{i} +" for i in range(1,11)]
+    for col in freq_cols:
         if col in df3.columns:
-            df3[col] = (pd.to_numeric(df3[col], errors='coerce') / 100) * tv_universe
-
-    clean_freq_selected = freq_selected.replace(" ", "")
-    actual_col = None
-    for col in df3.columns:
-        if col.replace(" ", "") == clean_freq_selected:
-            actual_col = col
-            break
-
-    if actual_col is None:
-        st.error(f"Could not find a frequency column matching '{freq_selected}' in your Excel/CSV file. Please check your sheet and column names.")
+            df3[col] = pd.to_numeric(df3[col], errors='coerce')/100 * tv_universe
+    clean = freq_selected.replace(" ","")
+    actual = next((c for c in df3.columns if c.replace(" ","") == clean), None)
+    if not actual:
+        st.error(f"Column {freq_selected} not found.")
     else:
-        df3[actual_col] = pd.to_numeric(df3[actual_col], errors='coerce')
         df3['GRPs'] = pd.to_numeric(df3['GRPs'], errors='coerce')
-        df3['CPRP'] = cprp
-        df3['ACD'] = acd
-        df3['Budget'] = ((cprp * df3['GRPs']) * acd / 30).round(2)
-        df3['Reach Percentage'] = (df3[actual_col] / maximum_reach_tv) * 100
+        df3['Budget'] = (cprp * df3['GRPs'] * acd/30).round(2)
+        df3['Reach Percentage'] = df3[actual]/maximum_reach_tv * 100
         df3['Previous Reach %'] = df3['Reach Percentage'].shift(1)
         df3['Previous Budget'] = df3['Budget'].shift(1)
-        df3['Efficiency'] = ((df3['Reach Percentage'] - df3['Previous Reach %']) /
-                             (df3['Budget'] - df3['Previous Budget'])).replace([np.inf, -np.inf], np.nan).fillna(0) * 100
-
-        min_tv_pct = int(df3['Reach Percentage'].min())
-        max_tv_pct = int(df3['Reach Percentage'].max())
-        tv_slider_val = st.sidebar.slider(
-            "TV: Custom Reach Percentage",
-            min_value=min_tv_pct,
-            max_value=max_tv_pct,
-            value=min(70, max_tv_pct),
-            step=1,
-            key="tv_slider"
-        )
-
-        tv_slider_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
-
-        plot_mask = df3.index != df3.index.min()
-
+        df3['Efficiency'] = ((df3['Reach Percentage'] - df3['Previous Reach %'])/(df3['Budget'] - df3['Previous Budget'])).replace([np.inf,-np.inf],np.nan).fillna(0)*100
+        # slider
+        min_tv = int(df3['Reach Percentage'].min())
+        max_tv = int(df3['Reach Percentage'].max())
+        tv_slider = st.sidebar.slider("TV: Custom Reach %", min_value=min_tv, max_value=max_tv, value=min(70,max_tv), step=1, key="tv_slider")
+        row_tv = df3[df3['Reach Percentage']>=tv_slider].iloc[0] if any(df3['Reach Percentage']>=tv_slider) else None
+        # elbow
         try:
             from kneed import KneeLocator
-            x_tv = df3['Budget'].values
-            y_tv = df3[actual_col].values
-
-            kl_tv = KneeLocator(x_tv, y_tv, curve='concave', direction='increasing')
-            optimal_budget_tv = kl_tv.knee
-            optimal_reach_tv = kl_tv.knee_y
-
-            eff_idx_tv = (np.abs(df3['Budget'] - optimal_budget_tv)).argmin()
-            optimal_efficiency_tv = df3.iloc[eff_idx_tv]['Efficiency']
-            optimal_budget_tv = df3.iloc[eff_idx_tv]['Budget']
-            optimal_reach_tv = df3.iloc[eff_idx_tv][actual_col]
+            x3,y3 = df3['Budget'].values, df3[actual].values
+            kl3 = KneeLocator(x3,y3,curve='concave',direction='increasing')
+            kb = kl3.knee
+            idx3 = (np.abs(df3['Budget']-kb)).argmin()
+            opt_b3 = df3.iloc[idx3]['Budget']
+            opt_r3 = df3.iloc[idx3][actual]
+            opt_e3 = df3.iloc[idx3]['Efficiency']
+            st.success(f"**TV: Optimum Budget (Elbow): {opt_b3:,.2f} LKR**")
+            st.write(f"Efficiency: {opt_e3:.2f}")
         except ImportError:
-            st.error("The 'kneed' library is required for elbow point detection. Please install with `pip install kneed`.")
-            optimal_budget_tv = df3['Budget'].iloc[0]
-            optimal_reach_tv = df3[actual_col].iloc[0]
-            optimal_efficiency_tv = df3['Efficiency'].iloc[0]
-
-        st.success(f"**TV: Optimum Budget (Kneedle/Elbow): {optimal_budget_tv:,.2f} LKR**")
-        st.write(f"TV: Efficiency at this point: {optimal_efficiency_tv:.4f}")
-
-        fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_tv.add_trace(go.Scatter(
-                x=df3.loc[plot_mask, 'Budget'], y=df3.loc[plot_mask, actual_col],
-                mode='lines+markers', name=f'Reach {freq_selected}',
-                line=dict(color='blue', width=3)
-            ), secondary_y=False)
-        fig_tv.add_trace(go.Scatter(
-                x=df3.loc[plot_mask, 'Budget'], y=df3.loc[plot_mask, 'Efficiency'],
-                mode='lines+markers', name='Efficiency',
-                line=dict(color='orange', width=3, dash='dash')
-            ), secondary_y=True)
-        fig_tv.add_trace(go.Scatter(
-            x=[optimal_budget_tv], y=[optimal_reach_tv],
-            mode='markers+text',
-            marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget_tv:,.0f} LKR</b>"],
-            textposition="top right",
-            name='Optimum Point (Reach)'
-        ), secondary_y=False)
-        fig_tv.add_trace(go.Scatter(
-            x=[optimal_budget_tv], y=[optimal_efficiency_tv],
-            mode='markers+text',
-            marker=dict(size=14, color='green', line=dict(width=2, color='black')),
-            text=[f"<b>Efficiency:<br>{optimal_efficiency_tv:.2f}</b>"],
-            textposition="bottom left",
-            name='Optimum Point (Efficiency)'
-        ), secondary_y=True)
-
-        if tv_slider_row is not None:
-            fig_tv.add_vline(
-                x=tv_slider_row['Budget'],
-                line_dash="dot",
-                line_color="purple",
-                annotation_text=f"{tv_slider_val}%",
-                annotation_position="top",
-                annotation_font_size=14,
-                annotation_font_color="purple"
-            )
-            fig_tv.add_trace(
-                go.Scatter(
-                    x=[tv_slider_row['Budget']],
-                    y=[tv_slider_row[actual_col]],
-                    mode='markers+text',
-                    marker=dict(size=12, color='purple', line=dict(width=2, color='black')),
-                    text=[f"{tv_slider_row['Reach Percentage']:.1f}%"],
-                    textposition="top center",
-                    name='Selected Reach %'
-                ),
-                secondary_y=False,
-            )
-
-        fig_tv.update_layout(
-            title="",
-            xaxis=dict(title='Budget (LKR)'),
-            legend=dict(
-                orientation='h',
-                yanchor='bottom',
-                y=1.07,
-                xanchor='center',
-                x=0.5,
-                bgcolor='rgba(0,0,0,0)',
-                font=dict(size=14)
-            ),
-            template="plotly_white",
-            margin=dict(l=40, r=40, t=100, b=40)
-        )
-        fig_tv.update_yaxes(title_text=f'Reach {freq_selected}', color='blue', secondary_y=False)
-        fig_tv.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
-        st.plotly_chart(fig_tv, use_container_width=True)
+            st.error("Install kneed for elbow detection.")
+        m3 = df3.index!=df3.index.min()
+        fig3 = make_subplots(specs=[[{"secondary_y":True}]])
+        fig3.add_trace(go.Scatter(x=df3.loc[m3,'Budget'],y=df3.loc[m3,actual],mode='lines+markers',name=f'Reach {freq_selected}'), secondary_y=False)
+        fig3.add_trace(go.Scatter(x=df3.loc[m3,'Budget'],y=df3.loc[m3,'Efficiency'],mode='lines+markers',name='Efficiency',line=dict(dash='dash')), secondary_y=True)
+        fig3.add_trace(go.Scatter(x=[opt_b3],y=[opt_r3],mode='markers+text',marker=dict(size=12,color='red'),text=[f"Opt Budget:\n{opt_b3:,.0f}"],textposition='top right'), secondary_y=False)
+        fig3.add_trace(go.Scatter(x=[opt_b3],y=[opt_e3],mode='markers+text',marker=dict(size=12,color='green'),text=[f"Eff:{opt_e3:.1f}%"],textposition='bottom left'), secondary_y=True)
+        if row_tv is not None:
+            fig3.add_vline(x=row_tv['Budget'],line_dash='dot',annotation_text=f"{tv_slider}%",annotation_position='top')
+            fig3.add_trace(go.Scatter(x=[row_tv['Budget']],y=[row_tv[actual]],mode='markers+text',marker=dict(size=10,color='purple'),text=[f"{row_tv['Reach Percentage']:.1f}%"],textposition='top center'), secondary_y=False)
+        fig3.update_xaxes(title='Budget (LKR)')
+        fig3.update_yaxes(title=f'Reach {freq_selected}', secondary_y=False)
+        fig3.update_yaxes(title='Efficiency (%)', secondary_y=True)
+        st.plotly_chart(fig3, use_container_width=True)
 
 # ----------- Summary Table Section -----------
 st.header("Platform Comparison Table")
-
-summary_rows = []
-
-# ----- Meta summary -----
-if meta_file is not None and meta_selected_col is not None:
-    meta_max_reach = meta_df[meta_selected_col].max()
-    meta_opt_row = df.loc[optimal_budget_index]
-    meta_opt_reach = meta_opt_row[meta_selected_col]
-    meta_opt_budget = meta_opt_row['Budget']
-    meta_custom_row = df[df['Reach Percentage'] >= meta_slider_val].iloc[0] if not df[df['Reach Percentage'] >= meta_slider_val].empty else None
-    if meta_custom_row is not None:
-        meta_custom_reach = meta_custom_row[meta_selected_col]
-        meta_custom_budget = meta_custom_row['Budget']
-    else:
-        meta_custom_reach = np.nan
-        meta_custom_budget = np.nan
-
-    summary_rows.append({
-        "Platform": "Meta",
-        "Maximum Reach": f"{meta_max_reach:,.0f}",
-        "Optimum Reach": f"{meta_opt_reach:,.0f}",
-        "Optimum Budget (LKR)": f"{meta_opt_budget:,.0f}",
-        "Custom % Reach": f"{meta_slider_val}%",
-        "Reach @ Custom %": f"{meta_custom_reach:,.0f}",
-        "Budget @ Custom % (LKR)": f"{meta_custom_budget:,.0f}"
+summary = []
+# Meta summary
+if meta_file and meta_selected_col:
+    row_opt = df.loc[opt_idx]
+    row_cust = df[df['Reach Percentage']>=meta_slider_val].iloc[0] if meta_slider_val else None
+    summary.append({
+        "Platform":"Meta",
+        "Optimum Budget (LKR)":f"{row_opt['Budget']:,.0f}",
+        "Optimum Reach":f"{row_opt[meta_selected_col]:,.0f}",
+        "Custom %":f"{meta_slider_val}%",
+        "Budget @ Custom":f"{row_cust['Budget']:,.0f}" if row_cust is not None else ""
     })
-
-# ----- Google summary -----
-if google_file is not None and google_df is not None:
-    google_max_reach = google_df["1+ on-target reach"].max()
-    google_opt_reach = optimal_reach
-    google_opt_budget = optimal_budget
-    google_custom_row = df1[df1['Reach Percentage'] >= google_slider_val].iloc[0] if not df1[df1['Reach Percentage'] >= google_slider_val].empty else None
-    if google_custom_row is not None:
-        google_custom_reach = google_custom_row['1+ on-target reach']
-        google_custom_budget = google_custom_row['Budget_LKR']
-    else:
-        google_custom_reach = np.nan
-        google_custom_budget = np.nan
-
-    summary_rows.append({
-        "Platform": "Google",
-        "Maximum Reach": f"{google_max_reach:,.0f}",
-        "Optimum Reach": f"{google_opt_reach:,.0f}",
-        "Optimum Budget (LKR)": f"{google_opt_budget:,.0f}",
-        "Custom % Reach": f"{google_slider_val}%",
-        "Reach @ Custom %": f"{google_custom_reach:,.0f}",
-        "Budget @ Custom % (LKR)": f"{google_custom_budget:,.0f}"
+# Google summary
+if google_file and isinstance(google_df,pd.DataFrame) and google_selected_col:
+    row_opt_g = df1.iloc[idx]
+    row_cust_g = df1[df1['Reach Percentage']>=google_slider_val].iloc[0] if google_slider_val else None
+    summary.append({
+        "Platform":"Google",
+        "Optimum Budget (LKR)":f"{opt_b:,.0f}",
+        "Optimum Reach":f"{opt_r:,.0f}",
+        "Custom %":f"{google_slider_val}%",
+        "Budget @ Custom":f"{row_cust_g['Budget_LKR']:,.0f}" if row_cust_g is not None else ""
     })
-
-# ----- TV summary -----
-if tv_file is not None and 'actual_col' in locals() and actual_col is not None:
-    tv_max_reach = df3[actual_col].max()
-    tv_opt_reach = optimal_reach_tv
-    tv_opt_budget = optimal_budget_tv
-    tv_custom_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
-    if tv_custom_row is not None:
-        tv_custom_reach = tv_custom_row[actual_col]
-        tv_custom_budget = tv_custom_row['Budget']
-    else:
-        tv_custom_reach = np.nan
-        tv_custom_budget = np.nan
-
-    summary_rows.append({
-        "Platform": "TV",
-        "Maximum Reach": f"{tv_max_reach:,.2f}",
-        "Optimum Reach": f"{tv_opt_reach:,.2f}",
-        "Optimum Budget (LKR)": f"{tv_opt_budget:,.0f}",
-        "Custom % Reach": f"{tv_slider_val}%",
-        "Reach @ Custom %": f"{tv_custom_reach:,.2f}",
-        "Budget @ Custom % (LKR)": f"{tv_custom_budget:,.0f}"
+# TV summary
+if tv_file and actual:
+    row_opt_tv = df3.iloc[idx3]
+    row_cust_tv = df3[df3['Reach Percentage']>=tv_slider].iloc[0] if tv_slider else None
+    summary.append({
+        "Platform":"TV",
+        "Optimum Budget (LKR)":f"{row_opt_tv['Budget']:,.0f}",
+        "Optimum Reach":f"{row_opt_tv[actual]:,.2f}",
+        "Custom %":f"{tv_slider}%",
+        "Budget @ Custom":f"{row_cust_tv['Budget']:,.0f}" if row_cust_tv is not None else ""
     })
-
-if summary_rows:
-    summary_df = pd.DataFrame(summary_rows)
-    st.dataframe(summary_df, hide_index=True)
+if summary:
+    st.dataframe(pd.DataFrame(summary), hide_index=True)
 else:
-    st.info("Upload data for at least one platform to see the summary table.")
+    st.info("Upload data for at least one platform to see summary.")
