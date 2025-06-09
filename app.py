@@ -57,10 +57,11 @@ with st.sidebar:
         google_file = '/mnt/data/Google.xlsx'
     google_opts = {}
     if google_file:
-        if google_file.endswith('.xlsx'):
+        # only use endswith on string paths
+        if isinstance(google_file, str) and google_file.endswith('.xlsx'):
             df_google = pd.read_excel(google_file)
         else:
-            df_google = pd.read_csv(google_file)
+            df_google = pd.read_csv(google_file) if not isinstance(google_file, str) or not google_file.endswith('.xlsx') else pd.read_excel(google_file)
         reach_cols = [c for c in df_google.columns if 'on-target reach' in c.lower()]
         freq_google = st.slider("Google Frequency (X+)", 1, len(reach_cols), 1)
         google_col = f"{freq_google}+ on-target reach"
@@ -78,10 +79,10 @@ with st.sidebar:
         tv_file = '/mnt/data/tv.xlsx'
     tv_opts = {}
     if tv_file:
-        if tv_file.endswith('.xlsx'):
+        if isinstance(tv_file, str) and tv_file.endswith('.xlsx'):
             df_tv = pd.read_excel(tv_file)
         else:
-            df_tv = pd.read_csv(tv_file)
+            df_tv = pd.read_csv(tv_file) if not isinstance(tv_file, str) or not tv_file.endswith('.xlsx') else pd.read_excel(tv_file)
         cprp = st.number_input("CPRP (LKR)", min_value=0, value=8000)
         acd = st.number_input("ACD (sec)", min_value=0, value=17)
         uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
@@ -159,69 +160,4 @@ if google_opts:
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx_opt = find_optimal(df, 'Budget', col)
-    b_opt, r_opt, e_opt = df.at[idx_opt,'Budget'], df.at[idx_opt,col], df.at[idx_opt,'Eff']
-    st.success(f"Google optimal: {b_opt:,.0f} LKR (Eff {e_opt:.2f})")
-    cust_ix = df[df[col]/df[col].max()*100 >= google_opts['pct']].index.min()
-    fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Google Reach', line=dict(color='lightblue')), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Google Efficiency', line=dict(color='orange', dash='dash')), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b_opt], y=[r_opt], mode='markers', name='Google Opt', marker=dict(color='red', size=12)), secondary_y=False)
-    if pd.notna(cust_ix):
-        cb, cr = df.at[cust_ix,'Budget'], df.at[cust_ix,col]
-        fig.add_trace(go.Scatter(x=[cb], y=[cr], mode='markers', name='Google Custom', marker=dict(color='purple', size=10)), secondary_y=False)
-    fig.update_layout(xaxis_title='Budget (LKR)', template='plotly_dark')
-    fig.update_yaxes(title_text='Reach', secondary_y=False)
-    fig.update_yaxes(title_text='Efficiency', secondary_y=True)
-    st.plotly_chart(fig, use_container_width=True)
-    results.append(('Google', b_opt, r_opt, e_opt))
-
-# -------------------------------------
-# TV Analysis & Plot
-# -------------------------------------
-if tv_opts:
-    df = tv_opts['df'].copy()
-    for i in range(1,11):
-        key = f"{i}+"
-        if key in df.columns:
-            df[key] = pd.to_numeric(df[key].astype(str).str.replace(',',''), errors='coerce')/100 * tv_opts['uni']
-    actual_col = tv_opts['freq']
-    if actual_col not in df.columns:
-        actual_col = next((c for c in df.columns if c.replace(' ', '') == actual_col.replace('+','') + '+'), None)
-    if not actual_col:
-        st.error(f"TV column '{tv_opts['freq']}' not found.")
-    else:
-        df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
-        df['PrevR'] = df[actual_col].shift(1)
-        df['PrevB'] = df['Budget'].shift(1)
-        df['IncR'] = df[actual_col] - df['PrevR']
-        df['IncB'] = df['Budget'] - df['PrevB']
-        df['Eff'] = df['IncR'] / df['IncB']
-        idx_opt = find_optimal(df, 'Budget', actual_col)
-        b_opt, r_opt, e_opt = df.at[idx_opt,'Budget'], df.at[idx_opt,actual_col], df.at[idx_opt,'Eff']
-        st.success(f"TV optimal: {b_opt:,.0f} LKR (Eff {e_opt:.2f})")
-        cust_ix = None
-        if tv_opts['pct'] is not None:
-            reach_pct = df[actual_col] / tv_opts['max_reach'] * 100
-            cust_ix = reach_pct[reach_pct >= tv_opts['pct']].index.min()
-        fig = make_subplots(specs=[[{'secondary_y': True}]])
-        fig.add_trace(go.Scatter(x=df['Budget'], y=df[actual_col], name='TV Reach', line=dict(color='cyan')), secondary_y=False)
-        fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='TV Efficiency', line=dict(color='magenta', dash='dash')), secondary_y=True)
-        fig.add_trace(go.Scatter(x=[b_opt], y=[r_opt], mode='markers', name='TV Opt', marker=dict(color='red', size=12)), secondary_y=False)
-        if cust_ix is not None and pd.notna(cust_ix):
-            cb, cr = df.at[cust_ix,'Budget'], df.at[cust_ix,actual_col]
-            fig.add_trace(go.Scatter(x=[cb], y=[cr], mode='markers', name='TV Custom', marker=dict(color='purple', size=10)), secondary_y=False)
-        fig.update_layout(xaxis_title='Budget (LKR)', template='plotly_dark')
-        fig.update_yaxes(title_text='Reach', secondary_y=False)
-        fig.update_yaxes(title_text='Efficiency', secondary_y=True)
-        st.plotly_chart(fig, use_container_width=True)
-        results.append(('TV', b_opt, r_opt, e_opt))
-
-# -------------------------------------
-# Summary Table
-# -------------------------------------
-st.header("Platform Summary")
-if results:
-    summary = pd.DataFrame(results, columns=['Platform','OptBudget','OptReach','Efficiency']).set_index('Platform')
-    st.table(summary)
-else:
-    st.info("Upload data to analyze and see summary.")
+    b_opt, r_opt, e_opt = df.at[idx_opt,'Budget'], df.at[idx_opt,col], df.at[idx
