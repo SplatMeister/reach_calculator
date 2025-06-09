@@ -1,8 +1,8 @@
 import os
 import streamlit as st
 import pandas as pd
-from pandas.errors import EmptyDataError
 import numpy as np
+from pandas.errors import EmptyDataError
 from scipy.signal import savgol_filter
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
@@ -11,11 +11,7 @@ import plotly.graph_objects as go
 # Streamlit App: Omni-Channel Campaign Planner
 # -------------------------------------
 
-st.set_page_config(
-    page_title="Ogilvy Planner",
-    layout="centered",
-    page_icon="🟥"
-)
+st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="🟥")
 
 # Display Logo
 st.markdown(
@@ -34,9 +30,9 @@ st.markdown("Meta, Google & TV Data")
 # Sidebar: Upload & Settings
 # -------------------------------------
 with st.sidebar:
-    # META SETTINGS
+    # Meta Settings
     st.header("Meta Settings")
-    meta_file = st.file_uploader("Upload Meta CSV", type='csv', key='meta_csv')
+    meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key='meta_csv')
     if not meta_file and os.path.exists('/mnt/data/Meta.csv'):
         meta_file = '/mnt/data/Meta.csv'
     meta_opts = {}
@@ -54,28 +50,26 @@ with st.sidebar:
             st.error("Meta file missing required reach columns.")
 
     st.markdown("---")
-    # GOOGLE SETTINGS
+    # Google Settings
     st.header("Google Settings")
     google_file = st.file_uploader("Upload Google CSV/XLSX", type=['csv','xlsx'], key='google_csv')
     if not google_file and os.path.exists('/mnt/data/Google.xlsx'):
         google_file = '/mnt/data/Google.xlsx'
     google_opts = {}
     if google_file:
-        # Determine extension
-        ext = google_file if isinstance(google_file, str) else google_file.name
-        ext = os.path.splitext(ext)[1].lower()
-        # Load
-        try:
-            if ext in ['.xls','.xlsx']:
-                df_google = pd.read_excel(google_file)
-            else:
-                df_google = pd.read_csv(google_file)
-        except (UnicodeDecodeError, EmptyDataError):
+        fname = google_file if isinstance(google_file, str) else google_file.name
+        ext = os.path.splitext(fname)[1].lower()
+        # Load with fallbacks
+        if ext in ['.xls', '.xlsx']:
+            df_google = pd.read_excel(google_file)
+        else:
             try:
-                df_google = pd.read_csv(google_file, encoding='latin-1')
-            except Exception:
-                st.error("Failed to read Google file.")
-                df_google = pd.DataFrame()
+                df_google = pd.read_csv(google_file)
+            except (UnicodeDecodeError, EmptyDataError):
+                try:
+                    df_google = pd.read_csv(google_file, encoding='latin-1')
+                except Exception:
+                    df_google = pd.read_csv(google_file, engine='python', sep=None)
         reach_cols = [c for c in df_google.columns if 'on-target reach' in c.lower()]
         if reach_cols:
             freq = st.slider("Google Frequency (X+)", 1, len(reach_cols), 1)
@@ -89,27 +83,23 @@ with st.sidebar:
             st.error("Google file missing required reach columns.")
 
     st.markdown("---")
-    # TV SETTINGS
+    # TV Settings
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV CSV/XLSX", type=['csv','xlsx'], key='tv_csv')
     if not tv_file and os.path.exists('/mnt/data/tv.xlsx'):
         tv_file = '/mnt/data/tv.xlsx'
     tv_opts = {}
     if tv_file:
-        ext = tv_file if isinstance(tv_file, str) else tv_file.name
-        ext = os.path.splitext(ext)[1].lower()
-        # Load with fallback
-        try:
-            if ext in ['.xls','.xlsx']:
-                df_tv = pd.read_excel(tv_file)
-            else:
-                df_tv = pd.read_csv(tv_file)
-        except (UnicodeDecodeError, EmptyDataError):
+        fname = tv_file if isinstance(tv_file, str) else tv_file.name
+        ext = os.path.splitext(fname)[1].lower()
+        # Load with fallbacks
+        if ext in ['.xls', '.xlsx']:
+            df_tv = pd.read_excel(tv_file)
+        else:
             try:
+                df_tv = pd.read_csv(tv_file)
+            except (UnicodeDecodeError, EmptyDataError):
                 df_tv = pd.read_csv(tv_file, encoding='latin-1')
-            except Exception:
-                st.error("Failed to read TV file.")
-                df_tv = pd.DataFrame()
         cprp = st.number_input("CPRP (LKR)", min_value=0, value=8000)
         acd = st.number_input("ACD (sec)", min_value=0, value=17)
         uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
@@ -141,7 +131,7 @@ def find_optimal(df, budget, reach):
 results = []
 
 # -------------------------------------
-# META ANALYSIS & PLOT
+# Meta Analysis & Plot
 # -------------------------------------
 if meta_opts:
     df = meta_opts['df'].copy()
@@ -157,12 +147,12 @@ if meta_opts:
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Reach'), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Efficiency'), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', marker=dict(color='orange',size=12), name='Optimum'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Optimum'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
     results.append(('Meta', b, r, e))
 
 # -------------------------------------
-# GOOGLE ANALYSIS & PLOT
+# Google Analysis & Plot
 # -------------------------------------
 if google_opts:
     df = google_opts['df'].copy()
@@ -181,18 +171,18 @@ if google_opts:
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Reach'), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Efficiency'), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', marker=dict(color='red',size=12), name='Optimum'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Optimum'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
     results.append(('Google', b, r, e))
 
 # -------------------------------------
-# TV ANALYSIS & PLOT
+# TV Analysis & Plot
 # -------------------------------------
 if tv_opts:
     df = tv_opts['df'].copy()
     col = tv_opts['col']
-    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce')/100 * tv_opts['uni']
-    df['Budget'] = df['GRPs'].astype(float)*tv_opts['cprp']*tv_opts['acd']/30
+    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce') / 100 * tv_opts['uni']
+    df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
     df['PrevR'] = df[col].shift(1)
     df['PrevB'] = df['Budget'].shift(1)
     df['IncR'] = df[col] - df['PrevR']
@@ -204,7 +194,7 @@ if tv_opts:
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Reach'), secondary_y=False)
     fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Efficiency'), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', marker=dict(color='green',size=12), name='Optimum'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Optimum'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
     results.append(('TV', b, r, e))
 
