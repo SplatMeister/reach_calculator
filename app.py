@@ -150,8 +150,8 @@ if meta_opts:
     max_r = df[col].max()
     custom = df[df[col]/max_r*100 >= pct].iloc[0] if not df[df[col]/max_r*100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Meta Reach'), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Meta Efficiency'), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Meta Reach', line=dict(color='#EB3F43')), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Meta Efficiency', line=dict(color='#F58E8F', dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Meta Optimum', marker=dict(color='orange', size=12)), secondary_y=False)
     if custom is not None:
         fig.add_vline(x=custom['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{pct}%", annotation_position='top left')
@@ -177,14 +177,12 @@ if google_opts:
     idx = find_optimal(df, 'Budget', col)
     b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"Google optimal: {b:,.0f} LKR | Eff: {e:.2f}")
-    # custom reach marker
-    max_r = df[col].max()
-    custom = df[df[col]/max_r*100 >= pct].iloc[0] if not df[df[col]/max_r*100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Google Reach'), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Google Efficiency'), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Google Reach', line=dict(color='#EB3F43')), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Google Efficiency', line=dict(color='#F58E8F', dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Google Optimum', marker=dict(color='red', size=12)), secondary_y=False)
-    if custom is not None:
+    if 'pct' in google_opts:
+        custom = df[df[col]/df[col].max()*100 >= pct].iloc[0] if not df[df[col]/df[col].max()*100 >= pct].empty else None
         fig.add_vline(x=custom['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{pct}%", annotation_position='top left')
         fig.add_trace(go.Scatter(x=[custom['Budget']], y=[custom[col]], mode='markers+text', name='Google Custom', marker=dict(color='purple', size=10), text=[f"{custom[col]:,.0f}"], textposition='bottom center'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
@@ -207,14 +205,12 @@ if tv_opts:
     idx = find_optimal(df, 'Budget', col)
     b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"TV optimal: {b:,.0f} LKR | Eff: {e:.2f}")
-    # custom reach marker
-    max_r = df[col].max()
-    custom = df[df[col]/max_r*100 >= pct].iloc[0] if pct is not None and not df[df[col]/max_r*100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='TV Reach'), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='TV Efficiency'), secondary_y=True)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='TV Reach', line=dict(color='#EB3F43')), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='TV Efficiency', line=dict(color='#F58E8F', dash='dash')), secondary_y=True)
     fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='TV Optimum', marker=dict(color='green', size=12)), secondary_y=False)
-    if custom is not None:
+    if pct is not None:
+        custom = df[df[col]/df[col].max()*100 >= pct].iloc[0] if not df[df[col]/df[col].max()*100 >= pct].empty else None
         fig.add_vline(x=custom['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{pct}%", annotation_position='top left')
         fig.add_trace(go.Scatter(x=[custom['Budget']], y=[custom[col]], mode='markers+text', name='TV Custom', marker=dict(color='purple', size=10), text=[f"{int(custom[col])}"], textposition='bottom center'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
