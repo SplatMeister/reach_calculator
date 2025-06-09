@@ -69,7 +69,7 @@ with st.sidebar:
 
     # Google Section
     st.header("Google Settings")
-    google_file = st.file_uploader("Upload Google CSV", type=['csv'], key="google_csv")
+    google_file = st.file_uploader("Upload Google CSV or Excel", type=['csv', 'xlsx'], key="google_csv")
     conversion_rate = st.number_input("USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
     google_slider_val = None
     google_df = None
