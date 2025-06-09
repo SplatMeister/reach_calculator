@@ -309,6 +309,20 @@ if results:
             'Custom Budget (LKR)': f"{cust_budget:,.0f}" if not np.isnan(cust_budget) else ""
         })
     df_sum = pd.DataFrame(summary).set_index('Platform')
+    # Add a total row summing numeric columns
+    # Parse numeric values and compute sums
+    totals = {}
+    for col in df_sum.columns:
+        # remove commas and convert to float where possible
+        vals = []
+        for v in df_sum[col]:
+            try:
+                vals.append(float(str(v).replace(',','')))
+            except:
+                vals.append(0.0)
+        totals[col] = f"{sum(vals):,.0f}"
+    df_sum.loc['Total'] = totals
     st.dataframe(df_sum)
 else:
     st.info("Upload data and select settings to view summary.")
+
