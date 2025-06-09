@@ -105,23 +105,16 @@ with st.sidebar:
         uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
         max_r = st.number_input("Max Reach (abs)", min_value=0, value=10296000)
         freq = st.slider("TV Frequency (X+)", 1, 10, 1)
-        # find actual column by matching stripped spaces
         key = f"{freq}+"
-        actual_col = None
-        for c in df_tv.columns:
-            if c.replace(" ", "") == key:
-                actual_col = c
-                break
+        actual_col = next((c for c in df_tv.columns if c.replace(' ', '') == key), None)
         if not actual_col:
-            st.error(f"TV column '{key}' not found in your file.")
-        # custom reach slider
+            st.error(f"TV column '{key}' not found.")
         pct = None
         if actual_col:
             vals = pd.to_numeric(df_tv[actual_col].astype(str).str.replace(',',''), errors='coerce') / 100 * uni
             prct = vals / max_r * 100
             pct = st.slider("TV: Custom Reach %", int(prct.min()), int(prct.max()), 70)
         tv_opts = {'df': df_tv, 'col': actual_col, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_r, 'pct': pct}
-
 
 # -------------------------------------
 # Utility: Diminishing Returns Detector
@@ -144,18 +137,25 @@ results = []
 if meta_opts:
     df = meta_opts['df'].copy()
     col = meta_opts['col']
+    pct = meta_opts['pct']
     df['PrevR'] = df[col].shift(1)
     df['PrevB'] = df['Budget'].shift(1)
     df['IncR'] = df[col] - df['PrevR']
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx = find_optimal(df, 'Budget', col)
-    b, r, e = df.at[idx,'Budget'], df.at[idx,col], df.at[idx,'Eff']
+    b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"Meta optimal: {b:,.0f} LKR | Eff: {e:.2f}")
+    # custom reach marker
+    max_r = df[col].max()
+    custom = df[df[col]/max_r*100 >= pct].iloc[0] if not df[df[col]/max_r*100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Reach'), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Efficiency'), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Optimum'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Meta Reach'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Meta Efficiency'), secondary_y=True)
+    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Meta Optimum', marker=dict(color='orange', size=12)), secondary_y=False)
+    if custom is not None:
+        fig.add_vline(x=custom['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{pct}%", annotation_position='top left')
+        fig.add_trace(go.Scatter(x=[custom['Budget']], y=[custom[col]], mode='markers+text', name='Meta Custom', marker=dict(color='purple', size=10), text=[f"{custom[col]:,.0f}"], textposition='bottom center'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
     results.append(('Meta', b, r, e))
 
@@ -165,6 +165,7 @@ if meta_opts:
 if google_opts:
     df = google_opts['df'].copy()
     col = google_opts['col']
+    pct = google_opts['pct']
     df['Total Budget'] = pd.to_numeric(df['Total Budget'].astype(str).str.replace(',',''), errors='coerce')
     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce')
     df['Budget'] = df['Total Budget'] * google_opts['rate']
@@ -174,12 +175,18 @@ if google_opts:
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx = find_optimal(df, 'Budget', col)
-    b, r, e = df.at[idx,'Budget'], df.at[idx,col], df.at[idx,'Eff']
+    b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"Google optimal: {b:,.0f} LKR | Eff: {e:.2f}")
+    # custom reach marker
+    max_r = df[col].max()
+    custom = df[df[col]/max_r*100 >= pct].iloc[0] if not df[df[col]/max_r*100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Reach'), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Efficiency'), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Optimum'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Google Reach'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Google Efficiency'), secondary_y=True)
+    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Google Optimum', marker=dict(color='red', size=12)), secondary_y=False)
+    if custom is not None:
+        fig.add_vline(x=custom['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{pct}%", annotation_position='top left')
+        fig.add_trace(go.Scatter(x=[custom['Budget']], y=[custom[col]], mode='markers+text', name='Google Custom', marker=dict(color='purple', size=10), text=[f"{custom[col]:,.0f}"], textposition='bottom center'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
     results.append(('Google', b, r, e))
 
@@ -189,6 +196,7 @@ if google_opts:
 if tv_opts:
     df = tv_opts['df'].copy()
     col = tv_opts['col']
+    pct = tv_opts['pct']
     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce') / 100 * tv_opts['uni']
     df['Budget'] = df['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
     df['PrevR'] = df[col].shift(1)
@@ -197,12 +205,18 @@ if tv_opts:
     df['IncB'] = df['Budget'] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
     idx = find_optimal(df, 'Budget', col)
-    b, r, e = df.at[idx,'Budget'], df.at[idx,col], df.at[idx,'Eff']
+    b, r, e = df.at[idx, 'Budget'], df.at[idx, col], df.at[idx, 'Eff']
     st.success(f"TV optimal: {b:,.0f} LKR | Eff: {e:.2f}")
+    # custom reach marker
+    max_r = df[col].max()
+    custom = df[df[col]/max_r*100 >= pct].iloc[0] if pct is not None and not df[df[col]/max_r*100 >= pct].empty else None
     fig = make_subplots(specs=[[{'secondary_y': True}]])
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Reach'), secondary_y=False)
-    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='Efficiency'), secondary_y=True)
-    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='Optimum'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='TV Reach'), secondary_y=False)
+    fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='TV Efficiency'), secondary_y=True)
+    fig.add_trace(go.Scatter(x=[b], y=[r], mode='markers', name='TV Optimum', marker=dict(color='green', size=12)), secondary_y=False)
+    if custom is not None:
+        fig.add_vline(x=custom['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{pct}%", annotation_position='top left')
+        fig.add_trace(go.Scatter(x=[custom['Budget']], y=[custom[col]], mode='markers+text', name='TV Custom', marker=dict(color='purple', size=10), text=[f"{int(custom[col])}"], textposition='bottom center'), secondary_y=False)
     st.plotly_chart(fig, use_container_width=True)
     results.append(('TV', b, r, e))
 
