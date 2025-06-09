@@ -217,51 +217,98 @@ st.header("Platform Summary")
 if results:
     summary = []
     # Meta
-    if any(r[0]=='Meta' for r in results):
+    if any(r[0] == 'Meta' for r in results):
         dfm = meta_opts['df']
-        max_r = dfm[meta_opts['col']].max()
-        opt_idx = find_elbow(dfm.assign(Budget=dfm['Budget']), 'Budget', meta_opts['col'])
+        reach_col = meta_opts['col']
+        # Maximum reach and its budget
+        max_reach = dfm[reach_col].max()
+        max_idx = dfm[reach_col].idxmax()
+        max_budget = dfm.at[max_idx, 'Budget']
+        # Optimum
+        opt_idx = find_elbow(dfm.assign(Budget=dfm['Budget']), 'Budget', reach_col)
+        opt_reach = dfm.at[opt_idx, reach_col]
+        opt_budget = dfm.at[opt_idx, 'Budget']
+        # Custom
+        pct = meta_opts['pct']
+        cust = dfm[dfm[reach_col] / max_reach * 100 >= pct]
+        if not cust.empty:
+            cust_reach = cust.iloc[0][reach_col]
+            cust_budget = cust.iloc[0]['Budget']
+        else:
+            cust_reach = np.nan
+            cust_budget = np.nan
         summary.append({
-            'Platform':'Meta',
-            'Maximum Reach':f"{max_r:,.0f}",
-            'Optimum Reach':f"{dfm.at[opt_idx,meta_opts['col']]:,.0f}",
-            'Optimum Budget (LKR)':f"{dfm.at[opt_idx,'Budget']:,.0f}",
-            'Custom Reach':f"{dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].iloc[0][meta_opts['col']]:,.0f}" if not dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].empty else "",
-            'Custom Budget (LKR)':f"{dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].iloc[0]['Budget']:,.0f}" if not dfm[dfm[meta_opts['col']]/max_r*100>=meta_opts['pct']].empty else ""
+            'Platform': 'Meta',
+            'Maximum Reach': f"{max_reach:,.0f}",
+            'Budget @ Max Reach (LKR)': f"{max_budget:,.0f}",
+            'Optimum Reach': f"{opt_reach:,.0f}",
+            'Optimum Budget (LKR)': f"{opt_budget:,.0f}",
+            'Custom Reach': f"{cust_reach:,.0f}",
+            'Custom Budget (LKR)': f"{cust_budget:,.0f}" if not np.isnan(cust_budget) else ""
         })
     # Google
-    if any(r[0]=='Google' for r in results):
+    if any(r[0] == 'Google' for r in results):
         dfg = google_opts['df'].copy()
-        dfg['Budget']=pd.to_numeric(dfg['Total Budget'].astype(str).str.replace(',',''),errors='coerce')*google_opts['rate']
-        max_r=dfg[google_opts['col']].max()
-        opt_idx=find_elbow(dfg,'Budget',google_opts['col'])
-        cust=dfg[dfg[google_opts['col']]/max_r*100>=google_opts['pct']]
+        reach_col = google_opts['col']
+        dfg['Budget'] = pd.to_numeric(dfg['Total Budget'].astype(str).str.replace(',',''), errors='coerce') * google_opts['rate']
+        max_reach = dfg[reach_col].max()
+        max_idx = dfg[reach_col].idxmax()
+        max_budget = dfg.at[max_idx, 'Budget']
+        # Optimum
+        opt_idx = find_elbow(dfg, 'Budget', reach_col)
+        opt_reach = dfg.at[opt_idx, reach_col]
+        opt_budget = dfg.at[opt_idx, 'Budget']
+        # Custom
+        pct = google_opts['pct']
+        cust = dfg[dfg[reach_col] / max_reach * 100 >= pct]
+        if not cust.empty:
+            cust_reach = cust.iloc[0][reach_col]
+            cust_budget = cust.iloc[0]['Budget']
+        else:
+            cust_reach = np.nan
+            cust_budget = np.nan
         summary.append({
-            'Platform':'Google',
-            'Maximum Reach':f"{max_r:,.0f}",
-            'Optimum Reach':f"{dfg.at[opt_idx,google_opts['col']]:,.0f}",
-            'Optimum Budget (LKR)':f"{dfg.at[opt_idx,'Budget']:,.0f}",
-            'Custom Reach':f"{cust.iloc[0][google_opts['col']]:,.0f}" if not cust.empty else "",
-            'Custom Budget (LKR)':f"{cust.iloc[0]['Budget']:,.0f}" if not cust.empty else ""
+            'Platform': 'Google',
+            'Maximum Reach': f"{max_reach:,.0f}",
+            'Budget @ Max Reach (LKR)': f"{max_budget:,.0f}",
+            'Optimum Reach': f"{opt_reach:,.0f}",
+            'Optimum Budget (LKR)': f"{opt_budget:,.0f}",
+            'Custom Reach': f"{cust_reach:,.0f}",
+            'Custom Budget (LKR)': f"{cust_budget:,.0f}" if not np.isnan(cust_budget) else ""
         })
     # TV
-    if any(r[0]=='TV' for r in results):
-        dft=tv_opts['df'].copy()
-        abs_r=pd.to_numeric(dft[tv_opts['col']].astype(str).str.replace(',',''),errors='coerce')/100*tv_opts['uni']
-        dft[tv_opts['col']]=abs_r
-        dft['Budget']=dft['GRPs'].astype(float)*tv_opts['cprp']*tv_opts['acd']/30
-        max_r=abs_r.max()
-        opt_idx=find_elbow(dft,'Budget',tv_opts['col'])
-        cust=dft[dft[tv_opts['col']]/max_r*100>=tv_opts['pct']] if tv_opts['pct'] is not None else pd.DataFrame()
+    if any(r[0] == 'TV' for r in results):
+        dft = tv_opts['df'].copy()
+        reach_col = tv_opts['col']
+        abs_reach = pd.to_numeric(dft[reach_col].astype(str).str.replace(',',''), errors='coerce') / 100 * tv_opts['uni']
+        dft[reach_col] = abs_reach
+        dft['Budget'] = dft['GRPs'].astype(float) * tv_opts['cprp'] * tv_opts['acd'] / 30
+        max_reach = abs_reach.max()
+        max_idx = abs_reach.idxmax()
+        max_budget = dft.at[max_idx, 'Budget']
+        # Optimum
+        opt_idx = find_elbow(dft, 'Budget', reach_col)
+        opt_reach = dft.at[opt_idx, reach_col]
+        opt_budget = dft.at[opt_idx, 'Budget']
+        # Custom
+        pct = tv_opts['pct']
+        cust = dft[dft[reach_col] / max_reach * 100 >= pct] if pct is not None else pd.DataFrame()
+        if not cust.empty:
+            cust_reach = cust.iloc[0][reach_col]
+            cust_budget = cust.iloc[0]['Budget']
+        else:
+            cust_reach = np.nan
+            cust_budget = np.nan
         summary.append({
-            'Platform':'TV',
-            'Maximum Reach':f"{max_r:,.0f}",
-            'Optimum Reach':f"{dft.at[opt_idx,tv_opts['col']]:,.0f}",
-            'Optimum Budget (LKR)':f"{dft.at[opt_idx,'Budget']:,.0f}",
-            'Custom Reach':f"{cust.iloc[0][tv_opts['col']]:,.0f}" if not cust.empty else "",
-            'Custom Budget (LKR)':f"{cust.iloc[0]['Budget']:,.0f}" if not cust.empty else ""
+            'Platform': 'TV',
+            'Maximum Reach': f"{max_reach:,.0f}",
+            'Budget @ Max Reach (LKR)': f"{max_budget:,.0f}",
+            'Optimum Reach': f"{opt_reach:,.0f}",
+            'Optimum Budget (LKR)': f"{opt_budget:,.0f}",
+            'Custom Reach': f"{cust_reach:,.0f}",
+            'Custom Budget (LKR)': f"{cust_budget:,.0f}" if not np.isnan(cust_budget) else ""
         })
-    df_sum=pd.DataFrame(summary).set_index('Platform')
+    df_sum = pd.DataFrame(summary).set_index('Platform')
     st.dataframe(df_sum)
 else:
     st.info("Upload data and select settings to view summary.")
