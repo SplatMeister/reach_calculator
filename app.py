@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -15,7 +16,7 @@ st.set_page_config(
     page_icon="🟥"
 )
 
-# Display Ogilvy Logo
+# Display Logo
 st.markdown(
     """
     <div style="text-align: center;">
@@ -29,15 +30,18 @@ st.title("Omni-Channel Campaign Planner")
 st.markdown("Meta, Google & TV Data")
 
 # -------------------------------------
-# Sidebar: Upload & Settings
+# Sidebar: Upload & Sample Fallbacks
 # -------------------------------------
 with st.sidebar:
     # Meta Settings
     st.header("Meta Settings")
-    meta_file = st.file_uploader("Upload Meta CSV", type=['csv'])
+    meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key="meta_csv")
+    # fallback to sample
+    if not meta_file and os.path.exists('/mnt/data/Meta.csv'):
+        meta_file = '/mnt/data/Meta.csv'
     meta_opts = {}
     if meta_file:
-        df_meta = pd.read_csv(meta_file)
+        df_meta = pd.read_csv(meta_file) if isinstance(meta_file, str) else pd.read_csv(meta_file)
         reach_cols = [c for c in df_meta.columns if c.startswith('Reach at ') and c.endswith('frequency')]
         freq_meta = st.slider("Meta Frequency (X+)", 1, len(reach_cols), 1)
         meta_col = f"Reach at {freq_meta}+ frequency"
@@ -49,13 +53,18 @@ with st.sidebar:
     st.markdown("---")
     # Google Settings
     st.header("Google Settings")
-    google_file = st.file_uploader("Upload Google CSV or Excel", type=['csv','xlsx'])
+    google_file = st.file_uploader("Upload Google CSV/Excel", type=['csv','xlsx'], key="google_csv")
+    # fallback to sample
+    if not google_file and os.path.exists('/mnt/data/Google.xlsx'):
+        google_file = '/mnt/data/Google.xlsx'
     google_opts = {}
     if google_file:
-        if google_file.name.endswith('.xlsx'):
+        if isinstance(google_file, str) and google_file.endswith('.xlsx'):
             df_google = pd.read_excel(google_file)
-        else:
+        elif isinstance(google_file, str):
             df_google = pd.read_csv(google_file)
+        else:
+            df_google = pd.read_excel(google_file) if google_file.name.endswith('.xlsx') else pd.read_csv(google_file)
         reach_cols = [c for c in df_google.columns if 'on-target reach' in c.lower()]
         freq_google = st.slider("Google Frequency (X+)", 1, len(reach_cols), 1)
         google_col = f"{freq_google}+ on-target reach"
@@ -68,13 +77,18 @@ with st.sidebar:
     st.markdown("---")
     # TV Settings
     st.header("TV Settings")
-    tv_file = st.file_uploader("Upload TV CSV or Excel", type=['csv','xlsx'])
+    tv_file = st.file_uploader("Upload TV CSV/Excel", type=['csv','xlsx'], key="tv_file")
+    # fallback to sample
+    if not tv_file and os.path.exists('/mnt/data/tv.xlsx'):
+        tv_file = '/mnt/data/tv.xlsx'
     tv_opts = {}
     if tv_file:
-        if tv_file.name.endswith('.xlsx'):
+        if isinstance(tv_file, str) and tv_file.endswith('.xlsx'):
             df_tv = pd.read_excel(tv_file)
-        else:
+        elif isinstance(tv_file, str):
             df_tv = pd.read_csv(tv_file)
+        else:
+            df_tv = pd.read_excel(tv_file) if tv_file.name.endswith('.xlsx') else pd.read_csv(tv_file)
         cprp = st.number_input("CPRP (LKR)", min_value=0, value=8000)
         acd = st.number_input("ACD (sec)", min_value=0, value=17)
         uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
@@ -88,17 +102,13 @@ with st.sidebar:
 def find_optimal(df, budget_col, reach_col):
     x = df[budget_col].values
     y = df[reach_col].values
-    # marginal gain
     dy = np.gradient(y, x)
-    # smooth
     if len(dy) > 5:
         dy = savgol_filter(dy, 5, 2)
-    # threshold at 10% of peak marginal
     thr = 0.1 * np.max(dy)
     below = np.where(dy < thr)[0]
     if below.size:
         return below[0]
-    # fallback to mid-point
     return np.argmin(np.abs(x - x.mean()))
 
 results = []
@@ -117,7 +127,6 @@ if meta_opts:
     idx_opt = find_optimal(df, 'Budget', col)
     b_opt, r_opt, e_opt = df.at[idx_opt,'Budget'], df.at[idx_opt,col], df.at[idx_opt,'Eff']
     st.success(f"Meta optimal: {b_opt:,.0f} LKR (Eff {e_opt:.2f})")
-    # custom reach marker
     cust_ix = df[df[col]/df[col].max()*100 >= meta_opts['pct']].index.min()
     fig = make_subplots(specs=[[{'secondary_y': True}]])
     fig.add_trace(go.Scatter(x=df['Budget'], y=df[col], name='Meta Reach', line=dict(color='skyblue')), secondary_y=False)
@@ -138,7 +147,6 @@ if meta_opts:
 if google_opts:
     df = google_opts['df'].copy()
     col = google_opts['col']
-    # numeric coercion
     df['Total Budget'] = pd.to_numeric(df['Total Budget'].astype(str).str.replace(',',''), errors='coerce')
     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',',''), errors='coerce')
     df['Budget'] = df['Total Budget'] * google_opts['rate']
@@ -169,10 +177,9 @@ if google_opts:
 # -------------------------------------
 if tv_opts:
     df = tv_opts['df'].copy()
-    # convert reach % columns
     for i in range(1,11):
         key = f"{i}+"
-        if key in df:
+        if key in df.columns:
             df[key] = pd.to_numeric(df[key].astype(str).str.replace(',',''), errors='coerce')/100 * tv_opts['uni']
     desired = tv_opts['freq'].replace('+','') + '+'
     actual_col = next((c for c in df.columns if c.replace(' ','') == desired), None)
