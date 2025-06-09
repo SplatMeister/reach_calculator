@@ -6,20 +6,17 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="🟥")
-st.markdown(
-    """
+st.markdown("""
     <div style="text-align: center;">
         <img src="https://www.ogilvy.com/sites/g/files/dhpsjz106/files/inline-images/Ogilvy%20Restructures.jpg" width="300">
     </div>
-    """,
-    unsafe_allow_html=True
+    """, unsafe_allow_html=True
 )
 st.title("Omni-Channel Campaign Planner")
 st.markdown("Meta, Google & TV Data")
 
-# ----------------- SIDEBAR -----------------
 with st.sidebar:
-    # Meta Section
+    # Meta Section (CSV only)
     st.header("Meta Settings")
     meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key="meta_csv")
     meta_df = None
@@ -61,23 +58,23 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Google Section (NOW WITH FREQUENCY PICKER!)
+    # Google Section (CSV/XLSX robust)
     st.header("Google Settings")
-    google_file = st.file_uploader("Upload Google CSV/Excel", type=['csv', 'xlsx'], key="google_csv")
+    google_file = st.file_uploader("Upload Google CSV or Excel", type=['csv', 'xlsx'], key="google_csv")
     conversion_rate = st.number_input("USD to LKR Conversion Rate", value=300.0, min_value=0.0, step=1.0)
     google_df = None
     google_freq_val = None
     google_slider_val = None
     google_selected_col = None
     min_pct_g, max_pct_g = 0, 100
+
     if google_file is not None:
-        # Load file
+        # Load file based on extension
         if google_file.name.endswith('.csv'):
             google_df = pd.read_csv(google_file)
         else:
             google_df = pd.read_excel(google_file)
         google_df.columns = [col.strip() for col in google_df.columns]
-        # Detect frequency columns
         google_freq_cols = [col for col in google_df.columns if col.endswith('+ on-target reach') or col == '1+ on-target reach']
         if google_freq_cols:
             freq_options = sorted([(int(col.split('+')[0]), col) for col in google_freq_cols], key=lambda x: x[0])
@@ -108,7 +105,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # TV Section (comma separated input)
+    # TV Section (CSV/XLSX robust)
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV Excel/CSV", type=['xlsx', 'csv'], key="tv_file")
     def parse_int(val, default):
@@ -128,37 +125,8 @@ with st.sidebar:
     freq_display_options = [f"{i} +" for i in range(1, 11)]
     freq_selected = st.selectbox("TV: Select Frequency", options=freq_display_options, index=0)
 
-# --------------- META SECTION ------------------
+# --------- META DATA PROCESSING ---------
 st.header("Meta Data")
-meta_columns = [
-    "Reach", "Budget", "Impressions", "CPM", "Frequency", "Frequency cap", "Reservable",
-    "Reach at 1+ frequency", "Reach at 2+ frequency", "Reach at 3+ frequency", "Reach at 4+ frequency",
-    "Reach at 5+ frequency", "Reach at 6+ frequency", "Reach at 7+ frequency", "Reach at 8+ frequency",
-    "Reach at 9+ frequency", "Reach at 10+ frequency"
-]
-meta_table_html = """
-<table>
-    <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in meta_columns]) + """
-    </tr>
-</table>
-"""
-st.markdown("""
-Upload your **Meta Reach Planner CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(meta_table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>File must be <b>.csv</b></li>
-    <li>Frequency columns (<b>Reach at 1+ frequency</b> to <b>Reach at 10+ frequency</b>) must be in <b>absolute numbers</b>.</li>
-    <li><b>Budget</b> should be in LKR (or your base currency).</li>
-    <li>Do <b>not</b> add extra columns or reorder columns.</li>
-    <li>Column names must exactly match the above (including spaces and "frequency").</li>
-</ul>
-You can then analyze <b>any</b> “Reach at X+ frequency” column, and visualize optimum budget and custom reach thresholds.
-""", unsafe_allow_html=True)
-
 if meta_file is not None and meta_selected_col is not None:
     df = meta_df.copy()
     maximum_reach = df[meta_selected_col].max()
@@ -247,36 +215,8 @@ if meta_file is not None and meta_selected_col is not None:
     fig.update_yaxes(title_text='Efficiency', color='seagreen', secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)
 
-# --------------- GOOGLE SECTION ------------------
+# --------- GOOGLE DATA PROCESSING ---------
 st.header("Google Data")
-google_columns = [
-    "Total Budget", "1+ on-target % reach", "1+ on-target reach", "2+ on-target reach", "3+ on-target reach",
-    "4+ on-target reach", "5+ on-target reach", "6+ on-target reach", "7+ on-target reach", "8+ on-target reach",
-    "9+ on-target reach", "10+ on-target reach", "Frequency", "On-Target Impressions", "Census TRPs", "Views", "Conversions"
-]
-table_html = """
-<table>
-    <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in google_columns]) + """
-    </tr>
-</table>
-"""
-st.markdown("""
-Upload your **Google Reach CSV/Excel** file.<br>
-<b>Recommended columns (order/frequency optional):</b>
-""", unsafe_allow_html=True)
-st.markdown(table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>File can be <b>.csv</b> or <b>.xlsx</b></li>
-    <li>Frequency columns (<b>1+ on-target reach</b> to <b>10+ on-target reach</b>) must be in <b>absolute numbers</b>.</li>
-    <li><b>Total Budget</b> in your base currency</li>
-    <li>Do <b>not</b> add extra columns or reorder columns.</li>
-    <li>Column names must exactly match the above (including spaces and symbols).</li>
-</ul>
-You can now analyze <b>any</b> “X+ on-target reach” frequency column and visualize optimum budget and custom reach thresholds.
-""", unsafe_allow_html=True)
-
 if google_file is not None and google_selected_col is not None:
     df1 = google_df.copy()
     maximum_reach = df1[google_selected_col].max()
@@ -365,33 +305,8 @@ if google_file is not None and google_selected_col is not None:
     fig.update_yaxes(title_text='Efficiency', color='seagreen', secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)
 
-# --------------- TV SECTION (as in your code) ------------------
+# --------- TV DATA PROCESSING ---------
 st.header("TV Data")
-tv_columns = [
-    "GRPs", "1 +", "2 +", "3 +", "4 +", "5 +", "6 +", "7 +", "8 +", "9 +", "10 +"
-]
-tv_table_html = """
-<table>
-    <tr>
-""" + "".join([f'<th style="color:#F58E8F; font-weight:bold; font-size:11px; padding:2px 4px; border-bottom:1px solid #eee;">{col}</th>' for col in tv_columns]) + """
-    </tr>
-</table>
-"""
-st.markdown("""
-Upload your **TV Plan Excel/CSV** file.<br>
-<b>Required columns (in order):</b>
-""", unsafe_allow_html=True)
-st.markdown(tv_table_html, unsafe_allow_html=True)
-st.markdown("""
-<ul>
-    <li>Frequency columns (<b>1 +</b> to <b>10 +</b>) must be in <b>percentage (%)</b> format in your file.</li>
-    <li>Do <b>not</b> add extra columns or reorder columns.</li>
-    <li>Column names must exactly match the list above (including spaces and the <b>+</b> symbol).</li>
-    <li>Accepted file types: <b>.xlsx</b> or <b>.csv</b></li>
-</ul>
-All calculations and charts will use your custom TV universe and max reach inputs below.
-""", unsafe_allow_html=True)
-
 if tv_file is not None:
     if tv_file.name.endswith('.csv'):
         df3 = pd.read_csv(tv_file)
@@ -433,24 +348,6 @@ if tv_file is not None:
         )
         tv_slider_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
         plot_mask = df3.index != df3.index.min()
-        try:
-            from kneed import KneeLocator
-            x_tv = df3['Budget'].values
-            y_tv = df3[actual_col].values
-            kl_tv = KneeLocator(x_tv, y_tv, curve='concave', direction='increasing')
-            optimal_budget_tv = kl_tv.knee
-            optimal_reach_tv = kl_tv.knee_y
-            eff_idx_tv = (np.abs(df3['Budget'] - optimal_budget_tv)).argmin()
-            optimal_efficiency_tv = df3.iloc[eff_idx_tv]['Efficiency']
-            optimal_budget_tv = df3.iloc[eff_idx_tv]['Budget']
-            optimal_reach_tv = df3.iloc[eff_idx_tv][actual_col]
-        except ImportError:
-            st.error("The 'kneed' library is required for elbow point detection. Please install with `pip install kneed`.")
-            optimal_budget_tv = df3['Budget'].iloc[0]
-            optimal_reach_tv = df3[actual_col].iloc[0]
-            optimal_efficiency_tv = df3['Efficiency'].iloc[0]
-        st.success(f"**TV: Optimum Budget (Kneedle/Elbow): {optimal_budget_tv:,.2f} LKR**")
-        st.write(f"TV: Efficiency at this point: {optimal_efficiency_tv:.4f}")
         fig_tv = make_subplots(specs=[[{"secondary_y": True}]])
         fig_tv.add_trace(go.Scatter(
                 x=df3.loc[plot_mask, 'Budget'], y=df3.loc[plot_mask, actual_col],
@@ -462,22 +359,7 @@ if tv_file is not None:
                 mode='lines+markers', name='Efficiency',
                 line=dict(color='orange', width=3, dash='dash')
             ), secondary_y=True)
-        fig_tv.add_trace(go.Scatter(
-            x=[optimal_budget_tv], y=[optimal_reach_tv],
-            mode='markers+text',
-            marker=dict(size=14, color='red', line=dict(width=2, color='black')),
-            text=[f"<b>Optimum<br>Budget:<br>{optimal_budget_tv:,.0f} LKR</b>"],
-            textposition="top right",
-            name='Optimum Point (Reach)'
-        ), secondary_y=False)
-        fig_tv.add_trace(go.Scatter(
-            x=[optimal_budget_tv], y=[optimal_efficiency_tv],
-            mode='markers+text',
-            marker=dict(size=14, color='green', line=dict(width=2, color='black')),
-            text=[f"<b>Efficiency:<br>{optimal_efficiency_tv:.2f}</b>"],
-            textposition="bottom left",
-            name='Optimum Point (Efficiency)'
-        ), secondary_y=True)
+        # -- Elbow detection can be added if needed, skipping for simplicity --
         if tv_slider_row is not None:
             fig_tv.add_vline(
                 x=tv_slider_row['Budget'],
@@ -519,7 +401,7 @@ if tv_file is not None:
         fig_tv.update_yaxes(title_text='Efficiency', color='orange', secondary_y=True)
         st.plotly_chart(fig_tv, use_container_width=True)
 
-# ----------- Summary Table Section -----------
+# --------- SUMMARY TABLE ---------
 st.header("Platform Comparison Table")
 summary_rows = []
 # ----- Meta summary -----
@@ -569,8 +451,6 @@ if google_file is not None and google_selected_col is not None:
 # ----- TV summary -----
 if tv_file is not None and 'actual_col' in locals() and actual_col is not None:
     tv_max_reach = df3[actual_col].max()
-    tv_opt_reach = optimal_reach_tv
-    tv_opt_budget = optimal_budget_tv
     tv_custom_row = df3[df3['Reach Percentage'] >= tv_slider_val].iloc[0] if not df3[df3['Reach Percentage'] >= tv_slider_val].empty else None
     if tv_custom_row is not None:
         tv_custom_reach = tv_custom_row[actual_col]
@@ -581,8 +461,6 @@ if tv_file is not None and 'actual_col' in locals() and actual_col is not None:
     summary_rows.append({
         "Platform": "TV",
         "Maximum Reach": f"{tv_max_reach:,.2f}",
-        "Optimum Reach": f"{tv_opt_reach:,.2f}",
-        "Optimum Budget (LKR)": f"{tv_opt_budget:,.0f}",
         "Custom % Reach": f"{tv_slider_val}%",
         "Reach @ Custom %": f"{tv_custom_reach:,.2f}",
         "Budget @ Custom % (LKR)": f"{tv_custom_budget:,.0f}"
