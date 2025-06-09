@@ -105,15 +105,23 @@ with st.sidebar:
         uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
         max_r = st.number_input("Max Reach (abs)", min_value=0, value=10296000)
         freq = st.slider("TV Frequency (X+)", 1, 10, 1)
-        col = f"{freq}+"
+        # find actual column by matching stripped spaces
+        key = f"{freq}+"
+        actual_col = None
+        for c in df_tv.columns:
+            if c.replace(" ", "") == key:
+                actual_col = c
+                break
+        if not actual_col:
+            st.error(f"TV column '{key}' not found in your file.")
+        # custom reach slider
         pct = None
-        if col in df_tv.columns:
-            vals = pd.to_numeric(df_tv[col].astype(str).str.replace(',',''), errors='coerce') / 100 * uni
+        if actual_col:
+            vals = pd.to_numeric(df_tv[actual_col].astype(str).str.replace(',',''), errors='coerce') / 100 * uni
             prct = vals / max_r * 100
             pct = st.slider("TV: Custom Reach %", int(prct.min()), int(prct.max()), 70)
-        else:
-            st.error(f"TV column '{col}' not found.")
-        tv_opts = {'df': df_tv, 'col': col, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_r, 'pct': pct}
+        tv_opts = {'df': df_tv, 'col': actual_col, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_r, 'pct': pct}
+
 
 # -------------------------------------
 # Utility: Diminishing Returns Detector
