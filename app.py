@@ -36,7 +36,6 @@ with st.sidebar:
     # Meta Settings
     st.header("Meta Settings")
     meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key="meta_csv")
-    # fallback to sample
     if not meta_file and os.path.exists('/mnt/data/Meta.csv'):
         meta_file = '/mnt/data/Meta.csv'
     meta_opts = {}
@@ -54,7 +53,6 @@ with st.sidebar:
     # Google Settings
     st.header("Google Settings")
     google_file = st.file_uploader("Upload Google CSV/Excel", type=['csv','xlsx'], key="google_csv")
-    # fallback to sample
     if not google_file and os.path.exists('/mnt/data/Google.xlsx'):
         google_file = '/mnt/data/Google.xlsx'
     google_opts = {}
@@ -78,7 +76,6 @@ with st.sidebar:
     # TV Settings
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV CSV/Excel", type=['csv','xlsx'], key="tv_file")
-    # fallback to sample
     if not tv_file and os.path.exists('/mnt/data/tv.xlsx'):
         tv_file = '/mnt/data/tv.xlsx'
     tv_opts = {}
@@ -89,12 +86,23 @@ with st.sidebar:
             df_tv = pd.read_csv(tv_file)
         else:
             df_tv = pd.read_excel(tv_file) if tv_file.name.endswith('.xlsx') else pd.read_csv(tv_file)
+        # Base settings
         cprp = st.number_input("CPRP (LKR)", min_value=0, value=8000)
         acd = st.number_input("ACD (sec)", min_value=0, value=17)
         uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
         max_reach_val = st.number_input("Max Reach (abs)", min_value=0, value=10296000)
         freq_tv = st.selectbox("TV Frequency (X+)", [f"{i}+" for i in range(1,11)])
-        tv_opts = {'df': df_tv, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_reach_val, 'freq': freq_tv}
+        # Build custom reach slider
+        # Copy and convert selected freq column
+        tmp = df_tv.copy()
+        if freq_tv in tmp.columns:
+            tmp[freq_tv] = pd.to_numeric(tmp[freq_tv].astype(str).str.replace(',',''), errors='coerce') / 100 * uni
+            reach_pct = tmp[freq_tv] / max_reach_val * 100
+            min_pct_tv, max_pct_tv = int(reach_pct.min()), int(reach_pct.max())
+            tv_pct = st.slider("TV: Custom Reach %", min_pct_tv, max_pct_tv, min(70, max_pct_tv))
+        else:
+            tv_pct = None
+        tv_opts = {'df': df_tv, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_reach_val, 'freq': freq_tv, 'pct': tv_pct}
 
 # -------------------------------------
 # Utility: Diminishing Returns Detector
@@ -181,8 +189,8 @@ if tv_opts:
         key = f"{i}+"
         if key in df.columns:
             df[key] = pd.to_numeric(df[key].astype(str).str.replace(',',''), errors='coerce')/100 * tv_opts['uni']
-    desired = tv_opts['freq'].replace('+','') + '+'
-    actual_col = next((c for c in df.columns if c.replace(' ','') == desired), None)
+    desired = tv_opts['freq']
+    actual_col = desired if desired in df.columns else next((c for c in df.columns if c.replace(' ', '') == desired.replace('+','') + '+'), None)
     if not actual_col:
         st.error(f"TV column '{tv_opts['freq']}' not found.")
     else:
@@ -195,10 +203,18 @@ if tv_opts:
         idx_opt = find_optimal(df, 'Budget', actual_col)
         b_opt, r_opt, e_opt = df.at[idx_opt,'Budget'], df.at[idx_opt,actual_col], df.at[idx_opt,'Eff']
         st.success(f"TV optimal: {b_opt:,.0f} LKR (Eff {e_opt:.2f})")
+        # custom TV marker
+        if tv_opts.get('pct') is not None:
+            cust_ix = df[df[actual_col]/tv_opts['max_reach']*100 >= tv_opts['pct']].index.min()
+        else:
+            cust_ix = None
         fig = make_subplots(specs=[[{'secondary_y': True}]])
         fig.add_trace(go.Scatter(x=df['Budget'], y=df[actual_col], name='TV Reach', line=dict(color='cyan')), secondary_y=False)
         fig.add_trace(go.Scatter(x=df['Budget'], y=df['Eff'], name='TV Efficiency', line=dict(color='magenta', dash='dash')), secondary_y=True)
         fig.add_trace(go.Scatter(x=[b_opt], y=[r_opt], mode='markers', name='TV Opt', marker=dict(color='red', size=12)), secondary_y=False)
+        if pd.notna(cust_ix):
+            cb, cr = df.at[cust_ix,'Budget'], df.at[cust_ix,actual_col]
+            fig.add_trace(go.Scatter(x=[cb], y=[cr], mode='markers', name='TV Custom', marker=dict(color='purple', size=10)), secondary_y=False)
         fig.update_layout(xaxis_title='Budget (LKR)', template='plotly_dark')
         fig.update_yaxes(title_text='Reach', secondary_y=False)
         fig.update_yaxes(title_text='Efficiency', secondary_y=True)
