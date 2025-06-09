@@ -74,35 +74,34 @@ with st.sidebar:
 
     st.markdown("---")
     # TV Settings
-    st.header("TV Settings")
-    tv_file = st.file_uploader("Upload TV CSV/Excel", type=['csv','xlsx'], key="tv_file")
-    if not tv_file and os.path.exists('/mnt/data/tv.xlsx'):
-        tv_file = '/mnt/data/tv.xlsx'
-    tv_opts = {}
-    if tv_file:
-        if isinstance(tv_file, str) and tv_file.endswith('.xlsx'):
-            df_tv = pd.read_excel(tv_file)
-        elif isinstance(tv_file, str):
-            df_tv = pd.read_csv(tv_file)
-        else:
-            df_tv = pd.read_excel(tv_file) if tv_file.name.endswith('.xlsx') else pd.read_csv(tv_file)
-        # Base settings
-        cprp = st.number_input("CPRP (LKR)", min_value=0, value=8000)
-        acd = st.number_input("ACD (sec)", min_value=0, value=17)
-        uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
-        max_reach_val = st.number_input("Max Reach (abs)", min_value=0, value=10296000)
-        freq_tv = st.selectbox("TV Frequency (X+)", [f"{i}+" for i in range(1,11)])
-        # Build custom reach slider
-        # Copy and convert selected freq column
-        tmp = df_tv.copy()
-        if freq_tv in tmp.columns:
-            tmp[freq_tv] = pd.to_numeric(tmp[freq_tv].astype(str).str.replace(',',''), errors='coerce') / 100 * uni
-            reach_pct = tmp[freq_tv] / max_reach_val * 100
-            min_pct_tv, max_pct_tv = int(reach_pct.min()), int(reach_pct.max())
-            tv_pct = st.slider("TV: Custom Reach %", min_pct_tv, max_pct_tv, min(70, max_pct_tv))
-        else:
+        tv_file = st.file_uploader("Upload TV CSV/Excel", type=['csv','xlsx'], key="tv_file")
+        if not tv_file and os.path.exists('/mnt/data/tv.xlsx'):
+            tv_file = '/mnt/data/tv.xlsx'
+        tv_opts = {}
+        if tv_file:
+            if isinstance(tv_file, str) and tv_file.endswith('.xlsx'):
+                df_tv = pd.read_excel(tv_file)
+            elif isinstance(tv_file, str):
+                df_tv = pd.read_csv(tv_file)
+            else:
+                df_tv = pd.read_excel(tv_file) if tv_file.name.endswith('.xlsx') else pd.read_csv(tv_file)
+            # Base settings
+            cprp = st.number_input("CPRP (LKR)", min_value=0, value=8000)
+            acd = st.number_input("ACD (sec)", min_value=0, value=17)
+            uni = st.number_input("Universe (pop)", min_value=0, value=11440000)
+            max_reach_val = st.number_input("Max Reach (abs)", min_value=0, value=10296000)
+            # TV Frequency slider
+            freq_num = st.slider("TV Frequency (X+)", 1, 10, 1)
+            freq_tv = f"{freq_num}+"
+            # Build custom reach slider
+            tmp = df_tv.copy()
             tv_pct = None
-        tv_opts = {'df': df_tv, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_reach_val, 'freq': freq_tv, 'pct': tv_pct}
+            if freq_tv in tmp.columns:
+                tmp[freq_tv] = pd.to_numeric(tmp[freq_tv].astype(str).str.replace(',',''), errors='coerce') / 100 * uni
+                reach_pct = tmp[freq_tv] / max_reach_val * 100
+                min_pct_tv, max_pct_tv = int(reach_pct.min()), int(reach_pct.max())
+                tv_pct = st.slider("TV: Custom Reach %", min_pct_tv, max_pct_tv, min(70, max_pct_tv))
+            tv_opts = {'df': df_tv, 'cprp': cprp, 'acd': acd, 'uni': uni, 'max_reach': max_reach_val, 'freq': freq_tv, 'pct': tv_pct}
 
 # -------------------------------------
 # Utility: Diminishing Returns Detector
