@@ -47,7 +47,8 @@ with st.sidebar:
             meta_selected_col = f"Reach at {meta_freq_val}+ frequency"
             if meta_selected_col not in meta_reach_cols:
                 meta_selected_col = meta_reach_cols[0]
-
+            
+            # Compute reach % for slider
             max_r = meta_df[meta_selected_col].max()
             meta_df['Reach %'] = meta_df[meta_selected_col] / max_r * 100
             min_pct = int(meta_df['Reach %'].min())
@@ -55,7 +56,7 @@ with st.sidebar:
             meta_slider_val = st.slider(
                 "Meta: Custom Reach %", min_pct, max_pct, min(70, max_pct), step=1, key="meta_slider"
             )
-
+    
     st.markdown("---")
 
     # ----- Google Section -----
@@ -70,15 +71,14 @@ with st.sidebar:
     google_slider_val = None
 
     if google_file:
-        # Read file
         if google_file.name.endswith('.xlsx'):
             google_df = pd.read_excel(google_file)
         else:
             google_df = pd.read_csv(google_file)
-        # Identify reach cols
+        
+        # Identify and coerce numeric on-target reach columns
         reach_cols = [c for c in google_df.columns if 'on-target reach' in c.lower()]
         if reach_cols:
-            # Convert numeric for Total Budget + reach cols
             for col in ['Total Budget'] + reach_cols:
                 if col in google_df:
                     google_df[col] = pd.to_numeric(
@@ -92,7 +92,8 @@ with st.sidebar:
             google_selected_col = f"{google_freq_val}+ on-target reach"
             if google_selected_col not in reach_cols:
                 google_selected_col = reach_cols[0]
-
+            
+            # Compute reach % for slider
             max_r = google_df[google_selected_col].max()
             google_df['Reach %'] = google_df[google_selected_col] / max_r * 100
             min_pct = int(google_df['Reach %'].min())
@@ -101,8 +102,8 @@ with st.sidebar:
                 "Google: Custom Reach %", min_pct, max_pct, min(70, max_pct), step=1, key="google_slider"
             )
         else:
-            st.error("No 'on-target reach' columns found in Google data.")
-
+            st.warning("No 'on-target reach' columns found in Google data—skipping Google analysis.")
+    
     st.markdown("---")
 
     # ----- TV Section -----
@@ -138,7 +139,6 @@ if meta_file and meta_selected_col:
     df['Efficiency']    = ((df['Reach %'] / df['Prev Reach %']) / (df['Budget'] / df['Prev Budget'])) * 100
     df['Efficiency'] = df['Efficiency'].replace([np.inf, -np.inf], np.nan).bfill()
 
-    # Optimal via min change in scaled efficiency
     scaler = MinMaxScaler()
     df['Scaled Eff'] = scaler.fit_transform(df[['Efficiency']])
     df['ΔEff']      = df['Scaled Eff'].diff()
@@ -153,38 +153,33 @@ if meta_file and meta_selected_col:
     sel_row = df[df['Reach %'] >= meta_slider_val].iloc[0] if meta_slider_val else None
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    # Reach trace
     fig.add_trace(go.Scatter(
         x=df['Budget'], y=df[meta_selected_col],
-        mode='lines', name='Reach', line=dict(color='skyblue', width=3)
+        mode='lines', name='Meta Reach', line=dict(color='skyblue', width=3)
     ), secondary_y=False)
-    # Efficiency trace
     fig.add_trace(go.Scatter(
         x=df['Budget'], y=df['Efficiency'],
-        mode='lines', name='Efficiency', line=dict(color='royalblue', dash='dash', width=3)
+        mode='lines', name='Meta Efficiency', line=dict(color='royalblue', dash='dash', width=3)
     ), secondary_y=True)
-    # Optimal markers
     fig.add_trace(go.Scatter(
-        x=[opt_b], y=[opt_r], mode='markers+text', name='Opt Budget',
+        x=[opt_b], y=[opt_r], mode='markers+text', name='Meta Opt Budget',
         marker=dict(color='orange', size=12), text=[f"{opt_b:,.0f}"], textposition='middle right'
     ), secondary_y=False)
     fig.add_trace(go.Scatter(
-        x=[opt_b], y=[opt_e], mode='markers+text', name='Opt Efficiency',
+        x=[opt_b], y=[opt_e], mode='markers+text', name='Meta Opt Efficiency',
         marker=dict(color='red', size=12), text=[f"{opt_e:.1f}%"], textposition='bottom left'
     ), secondary_y=True)
-    # Custom reach marker
     if sel_row is not None:
         fig.add_vline(x=sel_row['Budget'], line_dash='dot', line_color='purple',
                       annotation_text=f"{meta_slider_val}%", annotation_position='top')
         fig.add_trace(go.Scatter(
             x=[sel_row['Budget']], y=[sel_row[meta_selected_col]],
-            mode='markers+text', name='Custom Reach',
+            mode='markers+text', name='Meta Custom Reach',
             marker=dict(color='purple', size=10), text=[f"{sel_row['Reach %']:.1f}%"], textposition='top center'
         ), secondary_y=False)
-
     fig.update_layout(template='plotly_white', margin=dict(t=50, b=40))
     fig.update_xaxes(title='Budget (LKR)')
-    fig.update_yaxes(title='Reach at X+ freq', secondary_y=False)
+    fig.update_yaxes(title='Reach', secondary_y=False)
     fig.update_yaxes(title='Efficiency (%)', secondary_y=True)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -202,34 +197,38 @@ if google_file and google_selected_col:
 
     sel2 = df1[df1['Reach %'] >= google_slider_val].iloc[0] if google_slider_val else None
 
-    # Elbow detection
+    # Elbow detection fallback silently if kneed missing
     try:
         from kneed import KneeLocator
         kl = KneeLocator(df1['Budget_LKR'], df1[google_selected_col], curve='concave', direction='increasing')
         knee = kl.knee
         i = (np.abs(df1['Budget_LKR'] - knee)).argmin()
-        opt_b2 = df1.at[i,'Budget_LKR']; opt_r2 = df1.at[i,google_selected_col]; opt_e2 = df1.at[i,'Efficiency']
-        st.success(f"Google: Optimum Budget → {opt_b2:,.0f} LKR")
-        st.write(f"Efficiency: {opt_e2:.2f}%")
-    except:
-        st.error("Install kneed for elbow detection.")
-        opt_b2 = df1['Budget_LKR'].iloc[0]; opt_r2 = df1[google_selected_col].iloc[0]; opt_e2 = df1['Efficiency'].iloc[0]
+        opt_b2 = df1.at[i,'Budget_LKR']
+        opt_r2 = df1.at[i,google_selected_col]
+        opt_e2 = df1.at[i,'Efficiency']
+    except Exception:
+        opt_b2 = df1['Budget_LKR'].iloc[0]
+        opt_r2 = df1[google_selected_col].iloc[0]
+        opt_e2 = df1['Efficiency'].iloc[0]
+
+    st.success(f"Google: Optimum Budget → {opt_b2:,.0f} LKR")
+    st.write(f"Efficiency: {opt_e2:.2f}%")
 
     fig2 = make_subplots(specs=[[{"secondary_y": True}]])
     fig2.add_trace(go.Scatter(
         x=df1['Budget_LKR'], y=df1[google_selected_col],
-        mode='lines+markers', name='Reach', line=dict(color='lightblue', width=3)
+        mode='lines+markers', name='Google Reach', line=dict(color='lightblue', width=3)
     ), secondary_y=False)
     fig2.add_trace(go.Scatter(
         x=df1['Budget_LKR'], y=df1['Efficiency'],
-        mode='lines+markers', name='Efficiency', line=dict(color='orange', dash='dash', width=3)
+        mode='lines+markers', name='Google Efficiency', line=dict(color='orange', dash='dash', width=3)
     ), secondary_y=True)
     fig2.add_trace(go.Scatter(
-        x=[opt_b2], y=[opt_r2], mode='markers+text', name='Opt Budget',
+        x=[opt_b2], y=[opt_r2], mode='markers+text', name='Google Opt Budget',
         marker=dict(color='red', size=12), text=[f"{opt_b2:,.0f}"], textposition='top right'
     ), secondary_y=False)
     fig2.add_trace(go.Scatter(
-        x=[opt_b2], y=[opt_e2], mode='markers+text', name='Opt Efficiency',
+        x=[opt_b2], y=[opt_e2], mode='markers+text', name='Google Opt Efficiency',
         marker=dict(color='green', size=12), text=[f"{opt_e2:.1f}%"], textposition='bottom left'
     ), secondary_y=True)
     if sel2 is not None:
@@ -237,13 +236,12 @@ if google_file and google_selected_col:
                        annotation_text=f"{google_slider_val}%", annotation_position='top')
         fig2.add_trace(go.Scatter(
             x=[sel2['Budget_LKR']], y=[sel2[google_selected_col]],
-            mode='markers+text', name='Custom Reach',
+            mode='markers+text', name='Google Custom Reach',
             marker=dict(color='purple', size=10), text=[f"{sel2['Reach %']:.1f}%"], textposition='top center'
         ), secondary_y=False)
-
     fig2.update_layout(template='plotly_white', margin=dict(t=50, b=40))
     fig2.update_xaxes(title='Budget (LKR)')
-    fig2.update_yaxes(title='Reach at X+ on-target', secondary_y=False)
+    fig2.update_yaxes(title='Reach', secondary_y=False)
     fig2.update_yaxes(title='Efficiency (%)', secondary_y=True)
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -259,9 +257,7 @@ if tv_file:
 
     tgt = freq_selected.replace(" ", "")
     actual_col = next((c for c in df3.columns if c.replace(" ", "") == tgt), None)
-    if not actual_col:
-        st.error(f"Column {freq_selected} not found.")
-    else:
+    if actual_col:
         df3['GRPs'] = pd.to_numeric(df3['GRPs'], errors='coerce')
         df3['Budget'] = df3['GRPs'] * cprp * acd / 30
         df3['Reach %'] = df3[actual_col] / max_tv * 100
@@ -282,33 +278,33 @@ if tv_file:
             opt_b3 = df3.at[j, 'Budget']
             opt_r3 = df3.at[j, actual_col]
             opt_e3 = df3.at[j, 'Efficiency']
-            st.success(f"TV: Optimum Budget → {opt_b3:,.0f} LKR")
-            st.write(f"Efficiency: {opt_e3:.2f}%")
         except:
-            st.error("Install kneed for elbow detection.")
             opt_b3 = df3['Budget'].iloc[0]
             opt_r3 = df3[actual_col].iloc[0]
             opt_e3 = df3['Efficiency'].iloc[0]
 
+        st.success(f"TV: Optimum Budget → {opt_b3:,.0f} LKR")
+        st.write(f"Efficiency: {opt_e3:.2f}%")
+
         fig3 = make_subplots(specs=[[{"secondary_y": True}]])
         fig3.add_trace(go.Scatter(
             x=df3['Budget'], y=df3[actual_col],
-            mode='lines+markers', name=f"Reach {freq_selected}", line=dict(color='cyan', width=3)
+            mode='lines+markers', name=f"TV Reach {freq_selected}", line=dict(color='cyan', width=3)
         ), secondary_y=False)
         fig3.add_trace(go.Scatter(
             x=df3['Budget'], y=df3['Efficiency'],
-            mode='lines+markers', name='Efficiency', line=dict(color='magenta', dash='dash', width=3)
+            mode='lines+markers', name='TV Efficiency', line=dict(color='magenta', dash='dash', width=3)
         ), secondary_y=True)
         fig3.add_trace(go.Scatter(
-            x=[opt_b3], y=[opt_r3], mode='markers+text', name='Opt Budget', marker=dict(color='red', size=12), text=[f"{opt_b3:,.0f}"], textposition='top right'
+            x=[opt_b3], y=[opt_r3], mode='markers+text', name='TV Opt Budget', marker=dict(color='red', size=12), text=[f"{opt_b3:,.0f}"], textposition='top right'
         ), secondary_y=False)
         fig3.add_trace(go.Scatter(
-            x=[opt_b3], y=[opt_e3], mode='markers+text', name='Opt Efficiency', marker=dict(color='green', size=12), text=[f"{opt_e3:.1f}%"], textposition='bottom left'
+            x=[opt_b3], y=[opt_e3], mode='markers+text', name='TV Opt Efficiency', marker=dict(color='green', size=12), text=[f"{opt_e3:.1f}%"], textposition='bottom left'
         ), secondary_y=True)
         if sel3:
             fig3.add_vline(x=sel3['Budget'], line_dash='dot', line_color='purple', annotation_text=f"{tv_val}%", annotation_position='top')
             fig3.add_trace(go.Scatter(
-                x=[sel3['Budget']], y=[sel3[actual_col]], mode='markers+text', name='Custom Reach', marker=dict(color='purple', size=10), text=[f"{sel3['Reach %']:.1f}%"], textposition='top center'
+                x=[sel3['Budget']], y=[sel3[actual_col]], mode='markers+text', name='TV Custom Reach', marker=dict(color='purple', size=10), text=[f"{sel3['Reach %']:.1f}%"], textposition='top center'
             ), secondary_y=False)
 
         fig3.update_layout(template='plotly_white', margin=dict(t=50, b=40))
@@ -321,11 +317,26 @@ if tv_file:
 st.header("Platform Comparison Table")
 rows = []
 if meta_file and meta_selected_col:
-    rows.append({"Platform":"Meta","Opt Budget":f"{opt_b:,.0f}","Opt Reach":f"{opt_r:,.0f}","Custom %":f"{meta_slider_val}%"})
+    rows.append({
+        "Platform": "Meta",
+        "Opt Budget": f"{opt_b:,.0f}",
+        "Opt Reach": f"{opt_r:,.0f}",
+        "Custom %": f"{meta_slider_val}%"
+    })
 if google_file and google_selected_col:
-    rows.append({"Platform":"Google","Opt Budget":f"{opt_b2:,.0f}","Opt Reach":f"{opt_r2:,.0f}","Custom %":f"{google_slider_val}%"})
+    rows.append({
+        "Platform": "Google",
+        "Opt Budget": f"{opt_b2:,.0f}",
+        "Opt Reach": f"{opt_r2:,.0f}",
+        "Custom %": f"{google_slider_val}%"
+    })
 if tv_file and actual_col:
-    rows.append({"Platform":"TV","Opt Budget":f"{opt_b3:,.0f}","Opt Reach":f"{opt_r3:,.0f}","Custom %":f"{tv_val}%"})
+    rows.append({
+        "Platform": "TV",
+        "Opt Budget": f"{opt_b3:,.0f}",
+        "Opt Reach": f"{opt_r3:,.0f}",
+        "Custom %": f"{tv_val}%"
+    })
 if rows:
     st.dataframe(pd.DataFrame(rows), hide_index=True)
 else:
