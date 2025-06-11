@@ -115,7 +115,19 @@ for sec in section_names:
         w_key  = f"w_{param}"
         col1, col2 = st.columns([3,1])
         col1.slider(label=param, min_value=1, max_value=5, step=1, key=fr_key)
-        col2.slider(label="Weight (High - 6, Medium - 3, Low - 1)", min_value=1, max_value=6, step=1, key=w_key)
+        col2.slider(label="Weight", min_value=1, max_value=6, step=1, key=w_key)
+        col2.markdown(
+    """
+    <div style="display: flex; justify-content: space-between; font-size:13px; color:#666; margin-bottom:3px;">
+        <span>Low (1)</span>
+        <span>Medium (3)</span>
+        <span>High (6)</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+        
     st.markdown("---")
 ratings = [st.session_state[f"fr_{p}"] for p in all_params]
 weights = [st.session_state[f"w_{p}"]  for p in all_params]
