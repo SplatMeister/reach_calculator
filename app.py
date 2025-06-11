@@ -119,9 +119,9 @@ for sec in section_names:
         col2.markdown(
     """
     <div style="display: flex; justify-content: space-between; font-size:13px; color:#666; margin-bottom:3px;">
-        <span>Low (1)</span>
-        <span>Medium (3)</span>
-        <span>High (6)</span>
+        <span>Low</span>
+        <span>Medium</span>
+        <span>High</span>
     </div>
     """,
     unsafe_allow_html=True
