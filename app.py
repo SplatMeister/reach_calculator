@@ -411,7 +411,7 @@ else:
     st.info("Upload data and select settings to view summary.")
 
 # =============== Output Visualization ===============
-import plotly.graph_objects as go
+
 #chart 1
 # Prepare data (ensure df_sum is in memory, remove 'Total' row for plotting)
 df_plot = df_sum.drop('Total', errors='ignore').copy()
