@@ -6,6 +6,7 @@ from pandas.errors import EmptyDataError
 from scipy.signal import savgol_filter
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+import plotly.express as px
 
 # =============== UTILITY: DATA CLEANING ==============
 def clean_data(df, budget_col, reach_col):
@@ -119,9 +120,9 @@ for sec in section_names:
         col2.markdown(
     """
     <div style="display: flex; justify-content: space-between; font-size:13px; color:#666; margin-bottom:3px;">
-        <span>Low</span>
-        <span>Medium</span>
-        <span>High</span>
+        <span>Low (1)</span>
+        <span>Medium (3)</span>
+        <span>High (6)</span>
     </div>
     """,
     unsafe_allow_html=True
@@ -408,3 +409,82 @@ if results:
     st.dataframe(df_sum)
 else:
     st.info("Upload data and select settings to view summary.")
+
+# =============== Output Visualization ===============
+import plotly.graph_objects as go
+#chart 1
+# Prepare data (ensure df_sum is in memory, remove 'Total' row for plotting)
+df_plot = df_sum.drop('Total', errors='ignore').copy()
+for col in df_plot.columns:
+    df_plot[col] = df_plot[col].str.replace(',', '').replace('', '0').astype(float)
+platforms = df_plot.index.tolist()
+
+fig = go.Figure()
+
+# Add scatter points for each platform & metric
+colors = {'Meta':'#2471A3','Google':'#229954','TV':'#CB4335'}
+markers = ['circle', 'square', 'diamond']
+metrics = [
+    ("Optimum Budget (LKR)", "Optimum Reach"),
+    ("Custom Budget (LKR)", "Custom Reach"),
+    ("Budget @ Max Reach (LKR)", "Maximum Reach"),
+]
+metric_names = ["Optimum", "Custom", "Max"]
+
+for i, plat in enumerate(platforms):
+    for j, (b_col, r_col) in enumerate(metrics):
+        fig.add_trace(go.Scatter(
+            x=[df_plot.loc[plat, b_col]],
+            y=[df_plot.loc[plat, r_col]],
+            name=f"{plat} {metric_names[j]}",
+            mode='markers+text',
+            marker=dict(size=18, color=colors[plat], symbol=markers[j]),
+            text=[f"{plat}"],
+            textposition='bottom right',
+            hovertemplate=(
+                f"<b>{plat} {metric_names[j]}</b><br>"
+                "Budget: %{x:,.0f} LKR<br>"
+                "Reach: %{y:,.0f}<extra></extra>"
+            )
+        ))
+
+fig.update_layout(
+    title="Platform Budget vs Reach",
+    xaxis_title="Budget (LKR)",
+    yaxis_title="Reach (Absolute)",
+    template="plotly_dark",
+    legend_title="Platform & Metric",
+    hovermode="closest",
+    height=600,
+    margin=dict(l=40, r=40, t=80, b=40)
+)
+st.subheader("Platform Budget vs Reach")
+st.plotly_chart(fig, use_container_width=True)
+
+#chart 2
+
+df_plot = df_sum.drop('Total', errors='ignore').copy()
+for col in df_plot.columns:
+    df_plot[col] = df_plot[col].str.replace(',', '').replace('', '0').astype(float)
+df_plot = df_plot.reset_index()
+
+fig = px.scatter(
+    df_plot,
+    x="Optimum Budget (LKR)",
+    y="Optimum Reach",
+    size="Maximum Reach",
+    color="Platform",
+    hover_data=["Custom Budget (LKR)", "Custom Reach"],
+    text="Platform",
+    template="plotly_dark",
+    labels={
+        "Optimum Budget (LKR)": "Optimum Budget (LKR)",
+        "Optimum Reach": "Optimum Reach"
+    },
+    title="Platform Optimums (Bubble = Max Reach)"
+)
+fig.update_traces(textposition='top center')
+st.subheader("Bubble Chart: Platform Optimums")
+st.plotly_chart(fig, use_container_width=True)
+
+
