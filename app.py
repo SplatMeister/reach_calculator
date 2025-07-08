@@ -76,7 +76,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("Ogilvy OptiCast")
+st.title("Ogilvy Tensor")
 st.markdown("Meta, Google & TV Data")
 
 # =============== FREQUENCY CALCULATOR SECTION ===============
