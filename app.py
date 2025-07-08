@@ -64,7 +64,7 @@ def find_elbow(df, budget, reach, eff_col='Eff_smooth'):
 # -------------------------------------
 # Streamlit App: Omni-Channel Campaign Planner
 # -------------------------------------
-st.set_page_config(page_title="Ogilvy Planner", layout="centered", page_icon="🟥")
+st.set_page_config(page_title="Ogilvy OptiCast", layout="centered", page_icon="🟥")
 
 # Display Logo
 st.markdown(
