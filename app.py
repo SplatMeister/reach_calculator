@@ -76,7 +76,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("Campaign Planner")
+st.title("Ogilvy OptiCast")
 st.markdown("Meta, Google & TV Data")
 
 # =============== FREQUENCY CALCULATOR SECTION ===============
