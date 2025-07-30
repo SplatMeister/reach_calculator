@@ -66,17 +66,15 @@ def find_elbow(df, budget, reach, eff_col='Eff_smooth'):
 # -------------------------------------
 st.set_page_config(page_title="Ogilvy Tensor", layout="centered", page_icon="🟥")
 
-# Display Logo
 st.markdown(
     """
-    <div style="text-align: center;">
-      <img src="https://www.ogilvy.com/sites/g/files/dhpsjz106/files/inline-images/Ogilvy%20Restructures.jpg" width="300">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 30px; margin-bottom: 10px;">
+        <img src="https://www.ogilvy.com/sites/g/files/dhpsjz106/files/inline-images/Ogilvy%20Restructures.jpg" width="300">
+        <img src="logo.png" width="150">
     </div>
     """,
     unsafe_allow_html=True
 )
-# Display the logo at the top
-st.image("logo.png", width=200)  # Adjust width as needed
 st.title("Ogilvy Tensor")
 st.markdown("Meta, Google & TV Data")
 
