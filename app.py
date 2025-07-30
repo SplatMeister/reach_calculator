@@ -75,7 +75,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
+# Display the logo at the top
+st.image("logo.png", width=200)  # Adjust width as needed
 st.title("Ogilvy Tensor")
 st.markdown("Meta, Google & TV Data")
 
