@@ -70,7 +70,7 @@ st.set_page_config(page_title="Ogilvy Tensor", layout="centered", page_icon="ðŸŸ
 st.markdown(
     """
     <div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 30px; margin-bottom: 10px;">
-        <img src="https://www.ogilvy.com/sites/g/files/dhpsjz106/files/inline-images/Ogilvy%20Restructures.jpg" width="300">
+        <img src="https://raw.githubusercontent.com/SplatMeister/reach_calculator/main/ogilvy logo.png" width="150">
         <img src="https://raw.githubusercontent.com/SplatMeister/reach_calculator/main/logo.png" width="150">
     </div>
     """,
