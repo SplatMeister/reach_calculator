@@ -71,7 +71,7 @@ st.markdown(
     """
     <div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 30px; margin-bottom: 10px;">
         <img src="https://raw.githubusercontent.com/SplatMeister/reach_calculator/main/ogilvy logo.png" width="150">
-        <img src="https://raw.githubusercontent.com/SplatMeister/reach_calculator/main/logo.png" width="150">
+        <img src="https://raw.githubusercontent.com/SplatMeister/reach_calculator/main/tensor logo.png" width="150">
     </div>
     """,
     unsafe_allow_html=True
