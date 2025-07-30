@@ -77,12 +77,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("Ogilvy Tensor")
-st.markdown("Meta, Google & TV Data")
 
 # =============== FREQUENCY CALCULATOR SECTION ===============
-
 st.subheader("Frequency Calculator")
+st.markdown("Meta, Google & TV Data")
 
 section_names = ["Brand Parameters", "Ad Parameters", "Other Parameters"]
 sections = {
