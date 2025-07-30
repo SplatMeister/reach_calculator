@@ -66,15 +66,17 @@ def find_elbow(df, budget, reach, eff_col='Eff_smooth'):
 # -------------------------------------
 st.set_page_config(page_title="Ogilvy Tensor", layout="centered", page_icon="🟥")
 
+# Logos (side by side)
 st.markdown(
     """
     <div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 30px; margin-bottom: 10px;">
         <img src="https://www.ogilvy.com/sites/g/files/dhpsjz106/files/inline-images/Ogilvy%20Restructures.jpg" width="300">
-        <img src="logo.png" width="150">
+        <img src="https://raw.githubusercontent.com/SplatMeister/reach_calculator/main/logo.png" width="150">
     </div>
     """,
     unsafe_allow_html=True
 )
+
 st.title("Ogilvy Tensor")
 st.markdown("Meta, Google & TV Data")
 
