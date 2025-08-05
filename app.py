@@ -114,30 +114,6 @@ for sec in section_names:
         fr_key = f"fr_{param}"
         w_key  = f"w_{param}"
         col1, col2 = st.columns([3,1])
-
-        ########
-        if param == "Brand Objectives - Maintain Share":
-            col1.slider(
-                label=param,
-                min_value=1,
-                max_value=5,
-                step=1,
-                key=fr_key,
-                help="1 = Maintain Share, 5 = Increase Share"
-            )
-            col1.markdown(
-                """
-                <div style="display: flex; justify-content: space-between; font-size:13px; color:#666; margin-top:-10px; margin-bottom:5px;">
-                    <span>Maintain Share (1)</span>
-                    <span>Increase Share (5)</span>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            col1.slider(label=param, min_value=1, max_value=5, step=1, key=fr_key)
-
-        ######
         col1.slider(label=param, min_value=1, max_value=5, step=1, key=fr_key)
         col2.slider(label="Weight", min_value=1, max_value=6, step=1, key=w_key)
         col2.markdown(
@@ -509,6 +485,7 @@ fig = px.scatter(
 fig.update_traces(textposition='top center')
 st.subheader("Bubble Chart: Platform Optimums")
 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
