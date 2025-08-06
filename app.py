@@ -28,9 +28,7 @@ def calc_efficiency(df, budget_col, reach_col):
     df['IncR'] = df[reach_col] - df['PrevR']
     df['IncB'] = df[budget_col] - df['PrevB']
     df['Eff'] = df['IncR'] / df['IncB']
-    # Drop first row, since .shift(1) gives NaN there
     df = df.dropna(subset=['Eff']).reset_index(drop=True)
-    # Smooth efficiency for plotting/optimum (if enough points)
     if len(df) >= 7:
         try:
             df['Eff_smooth'] = savgol_filter(df['Eff'], 7, 3)
@@ -41,13 +39,11 @@ def calc_efficiency(df, budget_col, reach_col):
     return df
 
 def find_elbow(df, budget, reach, eff_col='Eff_smooth'):
-    # Detect max curvature (elbow) using smoothed efficiency
     x = df[budget].values
     y = df[reach].values
     eff = df[eff_col].values
     if len(x) < 5:
         return 0
-    # Use Savitzky-Golay again to smooth for curvature, if possible
     try:
         dy = np.gradient(y, x)
         d2y = np.gradient(dy, x)
@@ -59,14 +55,29 @@ def find_elbow(df, budget, reach, eff_col='Eff_smooth'):
             return 0
         return int(np.nanargmax(curvature))
     except Exception:
-        return int(np.argmax(eff)) # fallback: pick best efficiency if curvature fails
+        return int(np.argmax(eff))
 
-# -------------------------------------
-# Streamlit App: Omni-Channel Campaign Planner
-# -------------------------------------
+# =============== STREAMLIT SETUP ==============
 st.set_page_config(page_title="Ogilvy Tensor", layout="centered", page_icon="🟥")
 
-# Logos (side by side)
+st.markdown("""
+    <style>
+    /* Attempt 1: Hide the slider's tick labels on most Streamlit builds */
+    .stSlider div[data-testid="stTickBar"] {
+        display: none !important;
+    }
+    /* Attempt 2: Hide all tick labels using nth-of-type selector (works for many newer versions) */
+    .stSlider div[role="slider"] + div {
+        display: none !important;
+    }
+    /* Attempt 3: Hide any child span with numbers under slider */
+    .stSlider span {
+        color: transparent !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
 st.markdown(
     """
     <div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 30px; margin-bottom: 10px;">
@@ -78,80 +89,144 @@ st.markdown(
 )
 
 
-# =============== FREQUENCY CALCULATOR SECTION ===============
+# =============== FREQUENCY CALCULATOR SECTION ==============
 st.subheader("Frequency Calculator")
 st.markdown("Meta, Google & TV Data")
 
 section_names = ["Brand Parameters", "Ad Parameters", "Other Parameters"]
 sections = {
     "Brand Parameters": [
-        "Brand Objectives - Maintain Share",
-        "Brand Lifecycle - Established Brand",
-        "Brand Proposition - Established",
-        "Category Involvement Level - High Involvement"
+        "Brand Objectives",
+        "Brand Lifecycle",
+        "Brand Proposition",
+        "Category Involvement Level"
     ],
     "Ad Parameters": [
-        "Ad Duration - 45 sec +",
-        "Ad Lifecycle - Existing Copy",
-        "Ad Stock (Residue of recency) - High",
-        "Executions in Campaign - Multiple",
-        "Message Tonality - Simple",
-        "Role of Ad - Reinforcing Attitude",
+        "Ad Duration",
+        "Ad Lifecycle",
+        "Ad Stock (Residue of recency)",
+        "Executions in Campaign",
+        "Message Tonality",
+        "Role of Ad",
     ],
     "Other Parameters": [
-        "Media Clutter - Low",
-        "Competitor Activity - Low",
-        "Marketing Support - Integrated"
+        "Media Clutter",
+        "Competitor Activity",
+        "Marketing Support"
     ]
 }
+
+label_explanations = {
+    "Brand Objectives": ("Maintain Share", "Increase Share"),
+    "Brand Lifecycle": ("Established Brand", "New Launch"),
+    "Brand Proposition": ("Established", "New"),
+    "Category Involvement Level": ("High Involvement", "Low Involvement"),
+    "Ad Duration": ("45 sec +", "Less than 10 sec"),
+    "Ad Lifecycle": ("Existing Copy", "New Copy"),
+    "Ad Stock (Residue of recency)": ("High", "Low"),
+    "Executions in Campaign" : ("Multiple", "Single"),
+    "Message Tonality": ("Simple", "Complex"),
+    "Role of Ad": ("Reinforcing Attitude", "Changing Behaviour"),
+    "Media Clutter": ("Low", "High"),
+    "Competitor Activity": ("Low", "High"),
+    "Marketing Support": ("Integrated", "Stand Alone"),
+}
+
+default_weights = {
+    "Brand Objectives": 6,
+    "Brand Lifecycle": 1,
+    "Brand Proposition": 4,
+    "Category Involvement Level": 2,
+    "Ad Duration": 3,
+    "Ad Lifecycle": 4,
+    "Ad Stock (Residue of recency)": 3,
+    "Executions in Campaign": 1,
+    "Message Tonality": 2,
+    "Role of Ad": 5,
+    "Media Clutter": 3,
+    "Competitor Activity": 5,
+    "Marketing Support": 2,
+}
+
 all_params = [p for sec in section_names for p in sections[sec]]
 for p in all_params:
     st.session_state.setdefault(f"fr_{p}", 3)
-    st.session_state.setdefault(f"w_{p}", 3)
+    st.session_state.setdefault(f"w_{p}", default_weights.get(p, 1))
+
+
+
 for sec in section_names:
     st.subheader(sec)
     for param in sections[sec]:
         fr_key = f"fr_{param}"
-        w_key  = f"w_{param}"
-        col1, col2 = st.columns([3,1])
-        col1.slider(label=param, min_value=1, max_value=5, step=1, key=fr_key)
+        w_key = f"w_{param}"
+        col1, col2 = st.columns([3, 1])
+
+        # Add vertical spacing & bold parameter label with increased font size and a divider
+        col1.markdown(
+            f"""
+            <div style='margin-top:28px; margin-bottom:0px; font-size:17px; font-weight:800; letter-spacing:0.5px;'>
+                {param}
+            </div>
+            <hr style='border: none; border-bottom: 1px solid #393939; margin:2px 0 4px 0;'/>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Main slider (no label)
+        col1.slider(label="", min_value=1, max_value=5, step=1, key=fr_key)
+
+        # Endpoints with spacing and a little larger
+        if param in label_explanations:
+            left, right = label_explanations[param]
+            col1.markdown(
+                f"""
+                <div style='display: flex; justify-content: space-between; margin-top: -6px; margin-bottom:12px;'>
+                    <span style='color:#666;font-size:15px;font-weight:700;'>{left}</span>
+                    <span style='color:#666;font-size:15px;font-weight:700;'>{right}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Weight slider + labels
         col2.slider(label="Weight", min_value=1, max_value=6, step=1, key=w_key)
         col2.markdown(
-    """
-    <div style="display: flex; justify-content: space-between; font-size:13px; color:#666; margin-bottom:3px;">
-        <span>Low (1)</span>
-        <span>Medium (3)</span>
-        <span>High (6)</span>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-        
+            """
+            <div style="display: flex; justify-content: space-between; font-size:13px; color:#666; margin-bottom:3px;">
+                <span>Low (1)</span>
+                <span>Medium (3)</span>
+                <span>High (6)</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     st.markdown("---")
+
+
 ratings = [st.session_state[f"fr_{p}"] for p in all_params]
-weights = [st.session_state[f"w_{p}"]  for p in all_params]
+weights = [st.session_state[f"w_{p}"] for p in all_params]
 scores = [round(r * w / 2, 2) for r, w in zip(ratings, weights)]
 recommended_freq = round(sum(scores) / len(scores))
 df = pd.DataFrame({
-    "Section":        [sec for sec in section_names for _ in sections[sec]],
-    "Parameter":      all_params,
-    "Factor Rating":  ratings,
-    "Weight":         weights,
-    "Score":          scores
+    "Section": [sec for sec in section_names for _ in sections[sec]],
+    "Parameter": all_params,
+    "Factor Rating": ratings,
+    "Weight": weights,
+    "Score": scores
 }).set_index(["Section", "Parameter"])
+
 st.subheader("Results")
 st.write(f"*Sum of all Factor Ratings:* {sum(ratings)}")
 st.dataframe(df, use_container_width=True)
 st.markdown(f"## Recommended Frequency Level: *{recommended_freq}*")
+
 if "recommended_freq" not in st.session_state or st.session_state["recommended_freq"] != recommended_freq:
     st.session_state["recommended_freq"] = recommended_freq
 
 # =============== SIDEBAR: FILE UPLOADS & SETTINGS ===============
-#st.title("Omni-Channel Campaign Planner")
 st.markdown("Meta, Google & TV Data")
 with st.sidebar:
-    # Meta
     st.header("Meta Settings")
     meta_file = st.file_uploader("Upload Meta CSV", type=['csv'], key='meta_csv')
     meta_opts = {}
@@ -169,7 +244,7 @@ with st.sidebar:
             meta_opts = {'df': df_meta, 'col': col, 'pct': pct}
         else:
             st.error("Meta file missing required reach columns.")
-    # Google
+
     st.markdown("---")
     st.header("Google Settings")
     google_file = st.file_uploader("Upload Google CSV/XLSX", type=['csv','xlsx'], key='google_csv')
@@ -195,7 +270,7 @@ with st.sidebar:
             google_opts = {'df': df_google, 'col': col, 'pct': pct, 'rate': rate}
         else:
             st.error("Google file missing required reach columns.")
-    # TV
+
     st.markdown("---")
     st.header("TV Settings")
     tv_file = st.file_uploader("Upload TV CSV/XLSX", type=['csv','xlsx'], key='tv_csv')
@@ -411,81 +486,66 @@ else:
 
 # =============== Output Visualization ===============
 
-#chart 1
-# Prepare data (ensure df_sum is in memory, remove 'Total' row for plotting)
-df_plot = df_sum.drop('Total', errors='ignore').copy()
-for col in df_plot.columns:
-    df_plot[col] = df_plot[col].str.replace(',', '').replace('', '0').astype(float)
-platforms = df_plot.index.tolist()
+df_plot = df_sum.drop('Total', errors='ignore').copy() if 'df_sum' in locals() else pd.DataFrame()
+if not df_plot.empty:
+    for col in df_plot.columns:
+        df_plot[col] = df_plot[col].astype(str).str.replace(',', '').replace('', '0').astype(float)
+    platforms = df_plot.index.tolist()
+    fig = go.Figure()
+    colors = {'Meta':'#2471A3','Google':'#229954','TV':'#CB4335'}
+    markers = ['circle', 'square', 'diamond']
+    metrics = [
+        ("Optimum Budget (LKR)", "Optimum Reach"),
+        ("Custom Budget (LKR)", "Custom Reach"),
+        ("Budget @ Max Reach (LKR)", "Maximum Reach"),
+    ]
+    metric_names = ["Optimum", "Custom", "Max"]
+    for i, plat in enumerate(platforms):
+        for j, (b_col, r_col) in enumerate(metrics):
+            fig.add_trace(go.Scatter(
+                x=[df_plot.loc[plat, b_col]],
+                y=[df_plot.loc[plat, r_col]],
+                name=f"{plat} {metric_names[j]}",
+                mode='markers+text',
+                marker=dict(size=18, color=colors[plat], symbol=markers[j]),
+                text=[f"{plat}"],
+                textposition='bottom right',
+                hovertemplate=(
+                    f"<b>{plat} {metric_names[j]}</b><br>"
+                    "Budget: %{x:,.0f} LKR<br>"
+                    "Reach: %{y:,.0f}<extra></extra>"
+                )
+            ))
+    fig.update_layout(
+        title="Platform Budget vs Reach",
+        xaxis_title="Budget (LKR)",
+        yaxis_title="Reach (Absolute)",
+        template="plotly_dark",
+        legend_title="Platform & Metric",
+        hovermode="closest",
+        height=600,
+        margin=dict(l=40, r=40, t=80, b=40)
+    )
+    st.subheader("Platform Budget vs Reach")
+    st.plotly_chart(fig, use_container_width=True)
 
-fig = go.Figure()
-
-# Add scatter points for each platform & metric
-colors = {'Meta':'#2471A3','Google':'#229954','TV':'#CB4335'}
-markers = ['circle', 'square', 'diamond']
-metrics = [
-    ("Optimum Budget (LKR)", "Optimum Reach"),
-    ("Custom Budget (LKR)", "Custom Reach"),
-    ("Budget @ Max Reach (LKR)", "Maximum Reach"),
-]
-metric_names = ["Optimum", "Custom", "Max"]
-
-for i, plat in enumerate(platforms):
-    for j, (b_col, r_col) in enumerate(metrics):
-        fig.add_trace(go.Scatter(
-            x=[df_plot.loc[plat, b_col]],
-            y=[df_plot.loc[plat, r_col]],
-            name=f"{plat} {metric_names[j]}",
-            mode='markers+text',
-            marker=dict(size=18, color=colors[plat], symbol=markers[j]),
-            text=[f"{plat}"],
-            textposition='bottom right',
-            hovertemplate=(
-                f"<b>{plat} {metric_names[j]}</b><br>"
-                "Budget: %{x:,.0f} LKR<br>"
-                "Reach: %{y:,.0f}<extra></extra>"
-            )
-        ))
-
-fig.update_layout(
-    title="Platform Budget vs Reach",
-    xaxis_title="Budget (LKR)",
-    yaxis_title="Reach (Absolute)",
-    template="plotly_dark",
-    legend_title="Platform & Metric",
-    hovermode="closest",
-    height=600,
-    margin=dict(l=40, r=40, t=80, b=40)
-)
-st.subheader("Platform Budget vs Reach")
-st.plotly_chart(fig, use_container_width=True)
-
-#chart 2
-
-df_plot = df_sum.drop('Total', errors='ignore').copy()
-for col in df_plot.columns:
-    df_plot[col] = df_plot[col].str.replace(',', '').replace('', '0').astype(float)
-df_plot = df_plot.reset_index()
-
-fig = px.scatter(
-    df_plot,
-    x="Optimum Budget (LKR)",
-    y="Optimum Reach",
-    size="Maximum Reach",
-    color="Platform",
-    hover_data=["Custom Budget (LKR)", "Custom Reach"],
-    text="Platform",
-    template="plotly_dark",
-    labels={
-        "Optimum Budget (LKR)": "Optimum Budget (LKR)",
-        "Optimum Reach": "Optimum Reach"
-    },
-    title="Platform Optimums (Bubble = Max Reach)"
-)
-fig.update_traces(textposition='top center')
-st.subheader("Bubble Chart: Platform Optimums")
-st.plotly_chart(fig, use_container_width=True)
-
-
-
-
+    #chart 2
+    df_plot2 = df_plot.reset_index()
+    fig2 = px.scatter(
+        df_plot2,
+        x="Optimum Budget (LKR)",
+        y="Optimum Reach",
+        size="Maximum Reach",
+        color="Platform",
+        hover_data=["Custom Budget (LKR)", "Custom Reach"],
+        text="Platform",
+        template="plotly_dark",
+        labels={
+            "Optimum Budget (LKR)": "Optimum Budget (LKR)",
+            "Optimum Reach": "Optimum Reach"
+        },
+        title="Platform Optimums (Bubble = Max Reach)"
+    )
+    fig2.update_traces(textposition='top center')
+    st.subheader("Bubble Chart: Platform Optimums")
+    st.plotly_chart(fig2, use_container_width=True)
