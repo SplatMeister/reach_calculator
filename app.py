@@ -216,10 +216,6 @@ df = pd.DataFrame({
     "Score": scores
 }).set_index(["Section", "Parameter"])
 
-st.subheader("Results")
-st.write(f"*Sum of all Factor Ratings:* {sum(ratings)}")
-st.dataframe(df, use_container_width=True)
-st.markdown(f"## Recommended Frequency Level: *{recommended_freq}*")
 
 if "recommended_freq" not in st.session_state or st.session_state["recommended_freq"] != recommended_freq:
     st.session_state["recommended_freq"] = recommended_freq
