@@ -35,6 +35,7 @@ with st.sidebar:
     meta_reach_cols = []
     if meta_file is not None:
         meta_df = pd.read_csv(meta_file)
+        meta_df = meta_df.apply(lambda c: pd.to_numeric(c.astype(str).str.replace(',', '').str.strip(), errors='ignore'))
         meta_reach_cols = [col for col in meta_df.columns if col.startswith('Reach at ') and col.endswith('frequency')]
         if meta_reach_cols:
             freq_options = sorted([(int(col.split(' ')[2][0]), col) for col in meta_reach_cols], key=lambda x: x[0])
